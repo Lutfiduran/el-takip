@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sanal El Takibi</title>
+  <title>Şişe Kır</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -12,123 +12,681 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      background: #0a0a0f;
       overflow: hidden;
-      font-family: sans-serif;
+      font-family: 'Arial', sans-serif;
       color: white;
-    }
-    .container {
-      position: relative;
-      width: 100vw;
       height: 100vh;
+      width: 100vw;
     }
-    .input_video { display: none; }
-    
-    /* Canvas'ı container'a tam oturtur, flip burada */
-    .output_canvas {
-      position: absolute;
+    #gameCanvas {
+      position: fixed;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       transform: scaleX(-1);
     }
-    #loadingText {
+    .input_video { display: none; }
+
+    #ui {
       position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      top: 0; left: 0;
+      width: 100%;
+      pointer-events: none;
       z-index: 10;
-      font-size: 20px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    #score-box {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 10px 20px;
       text-align: center;
-      background: rgba(0,0,0,0.7);
-      padding: 16px 24px;
-      border-radius: 10px;
+      backdrop-filter: blur(10px);
+    }
+    #score-box .label { font-size: 11px; letter-spacing: 2px; opacity: 0.6; text-transform: uppercase; }
+    #score-box .value { font-size: 32px; font-weight: 700; }
+    #combo-box {
+      background: rgba(255,180,0,0.15);
+      border: 1px solid rgba(255,180,0,0.3);
+      border-radius: 12px;
+      padding: 10px 20px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.3s;
+    }
+    #combo-box .label { font-size: 11px; letter-spacing: 2px; opacity: 0.7; text-transform: uppercase; color: #ffb400; }
+    #combo-box .value { font-size: 32px; font-weight: 700; color: #ffb400; }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+    #loading h1 { font-size: 28px; letter-spacing: 3px; }
+    #loading p { opacity: 0.5; font-size: 14px; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 13px;
+      opacity: 0.7;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 1s;
     }
   </style>
 </head>
 <body>
 
-  <div id="loadingText">📷 Kamera açılıyor ve model yükleniyor...<br><small>Kamera iznini onaylamayı unutma</small></div>
+<div id="loading">
+  <div class="spinner"></div>
+  <h1>ŞİŞE KIR</h1>
+  <p>Kamera ve model yükleniyor...</p>
+</div>
 
-  <div class="container">
-    <video class="input_video" autoplay playsinline></video>
-    <canvas class="output_canvas"></canvas>
+<canvas id="gameCanvas"></canvas>
+<video class="input_video" autoplay playsinline></video>
+
+<div id="ui">
+  <div id="score-box">
+    <div class="label">Skor</div>
+    <div class="value" id="scoreVal">0</div>
   </div>
+  <div id="combo-box">
+    <div class="label">Kombo</div>
+    <div class="value" id="comboVal">x1</div>
+  </div>
+</div>
 
-  <script>
-    const videoElement = document.querySelector('.input_video');
-    const canvasElement = document.querySelector('.output_canvas');
-    const canvasCtx = canvasElement.getContext('2d');
-    const loadingText = document.getElementById('loadingText');
+<div id="hint">✊ Yumruk yap ve fırlat!</div>
 
-    let canvasSized = false;
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const video = document.querySelector('.input_video');
+const loading = document.getElementById('loading');
+const scoreEl = document.getElementById('scoreVal');
+const comboEl = document.getElementById('comboVal');
+const hintEl = document.getElementById('hint');
 
-    function onResults(results) {
-      loadingText.style.display = 'none';
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
 
-      // Boyutu sadece bir kez ayarla
-      if (!canvasSized && videoElement.videoWidth > 0) {
-        canvasElement.width = videoElement.videoWidth;
-        canvasElement.height = videoElement.videoHeight;
-        canvasSized = true;
-      }
+// ---- OYUN STATE ----
+let score = 0;
+let combo = 1;
+let comboTimer = 0;
+let hintShown = false;
 
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+// ---- TOP ----
+const ball = {
+  x: -999, y: -999,
+  vx: 0, vy: 0,
+  r: 36,
+  held: false,
+  thrown: false,
+  trail: [],
+  // El pozisyonları (history for velocity)
+  prevX: 0, prevY: 0,
+};
 
-      // Arka planı ister açık bırak (siyah kalır), ister kamerayı yansıt:
-      // canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+// ---- ŞİŞELER ----
+const BOTTLE_COUNT = 5;
+let bottles = [];
 
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        for (const landmarks of results.multiHandLandmarks) {
-          drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
-            { color: '#00FF00', lineWidth: 4 });
-          drawLandmarks(canvasCtx, landmarks,
-            { color: '#FF0000', lineWidth: 2, radius: 4 });
-        }
-      }
+function createBottle(index) {
+  const cols = BOTTLE_COUNT;
+  const margin = W * 0.12;
+  const spacing = (W - margin * 2) / (cols - 1);
+  return {
+    id: Math.random(),
+    x: margin + spacing * index,
+    y: H * 0.62,
+    w: 38, h: 90,
+    broken: false,
+    shards: [],
+    respawnTimer: 0,
+    wobble: 0,
+    glowTimer: 0,
+  };
+}
+
+function initBottles() {
+  bottles = [];
+  for (let i = 0; i < BOTTLE_COUNT; i++) {
+    bottles.push(createBottle(i));
+  }
+}
+initBottles();
+
+// ---- PARÇACIKLAR ----
+let particles = [];
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 22; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 8;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.03,
+      r: 3 + Math.random() * 6,
+      color,
+    });
+  }
+}
+
+// ---- KAMERA VERISI ----
+let handLandmarks = null;
+let handedness = null;
+
+// ---- PARMAK NOKTASI DÖNÜŞTÜRME ----
+function lm(landmark) {
+  // Canvas mirror var CSS'te, koordinatları düzeltiyoruz
+  return {
+    x: landmark.x * W,
+    y: landmark.y * H,
+  };
+}
+
+// ---- EL ÇİZİMİ ----
+function drawHand(landmarks) {
+  if (!landmarks) return;
+
+  const fingers = [
+    [0,1,2,3,4],
+    [0,5,6,7,8],
+    [0,9,10,11,12],
+    [0,13,14,15,16],
+    [0,17,18,19,20],
+  ];
+
+  // Avuç içi
+  const palmPoints = [0,1,5,9,13,17].map(i => lm(landmarks[i]));
+  ctx.beginPath();
+  ctx.moveTo(palmPoints[0].x, palmPoints[0].y);
+  for (let p of palmPoints) ctx.lineTo(p.x, p.y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,200,150,0.25)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,200,150,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Parmak çizgileri
+  for (const finger of fingers) {
+    ctx.beginPath();
+    for (let i = 0; i < finger.length; i++) {
+      const p = lm(landmarks[finger[i]]);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(255,200,150,0.7)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // Eklem noktaları
+  for (let i = 0; i < landmarks.length; i++) {
+    const p = lm(landmarks[i]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, i === 0 ? 8 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? 'rgba(255,150,80,0.9)' : 'rgba(255,220,180,0.8)';
+    ctx.fill();
+  }
+}
+
+// ---- YUMRUK TESPITI ----
+function isFist(landmarks) {
+  // Parmak uçları bileğe yakınsa yumruk
+  const wrist = lm(landmarks[0]);
+  let closedCount = 0;
+  const tips = [8, 12, 16, 20];
+  const bases = [5, 9, 13, 17];
+  for (let i = 0; i < tips.length; i++) {
+    const tip = lm(landmarks[tips[i]]);
+    const base = lm(landmarks[bases[i]]);
+    const distTipWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+    const distBaseWrist = Math.hypot(base.x - wrist.x, base.y - wrist.y);
+    if (distTipWrist < distBaseWrist * 1.15) closedCount++;
+  }
+  return closedCount >= 3;
+}
+
+// ---- EL MERKEZİ ----
+function handCenter(landmarks) {
+  const p0 = lm(landmarks[0]);
+  const p9 = lm(landmarks[9]);
+  return {
+    x: (p0.x + p9.x) / 2,
+    y: (p0.y + p9.y) / 2,
+  };
+}
+
+// ---- TOP ÇİZİMİ ----
+function drawBall() {
+  if (ball.x < -100) return;
+
+  // Trail
+  for (let i = 0; i < ball.trail.length; i++) {
+    const t = ball.trail[i];
+    const alpha = (i / ball.trail.length) * 0.25;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, ball.r * (i / ball.trail.length), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 120, 30, ${alpha})`;
+    ctx.fill();
+  }
+
+  // Top gölgesi
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y + ball.r * 0.8, ball.r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.filter = 'blur(6px)';
+  ctx.fill();
+  ctx.filter = 'none';
+
+  // Top
+  const grad = ctx.createRadialGradient(
+    ball.x - ball.r * 0.3, ball.y - ball.r * 0.3, ball.r * 0.05,
+    ball.x, ball.y, ball.r
+  );
+  grad.addColorStop(0, '#ff9955');
+  grad.addColorStop(0.5, '#e84a00');
+  grad.addColorStop(1, '#8b1a00');
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Basketbol çizgileri
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 2.5;
+  // Dikey çizgi
+  ctx.beginPath();
+  ctx.moveTo(ball.x, ball.y - ball.r);
+  ctx.lineTo(ball.x, ball.y + ball.r);
+  ctx.stroke();
+  // Yatay çizgi
+  ctx.beginPath();
+  ctx.moveTo(ball.x - ball.r, ball.y);
+  ctx.lineTo(ball.x + ball.r, ball.y);
+  ctx.stroke();
+  // Kavisli çizgiler
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r * 0.55, 0, Math.PI);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r * 0.55, Math.PI, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Işık yansıması
+  ctx.beginPath();
+  ctx.ellipse(ball.x - ball.r * 0.28, ball.y - ball.r * 0.3, ball.r * 0.18, ball.r * 0.1, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fill();
+}
+
+// ---- ŞİŞE ÇİZİMİ ----
+function drawBottle(b) {
+  if (b.broken) {
+    // Kırık parçalar
+    for (const s of b.shards) {
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.rot);
+      ctx.globalAlpha = s.life;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(s.w, s.h * 0.3);
+      ctx.lineTo(s.w * 0.5, s.h);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(0, 0, s.w, s.h);
+      g.addColorStop(0, 'rgba(100,200,255,0.7)');
+      g.addColorStop(1, 'rgba(50,150,200,0.3)');
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(150,230,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+    return;
+  }
+
+  const { x, y, w, h, wobble, glowTimer } = b;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(wobble) * 0.08);
+
+  // Glow (vurulduğunda)
+  if (glowTimer > 0) {
+    ctx.shadowColor = 'rgba(100,220,255,0.8)';
+    ctx.shadowBlur = 20 * glowTimer;
+  }
+
+  // Şişe gövdesi
+  ctx.beginPath();
+  ctx.roundRect(-w/2, -h/2, w, h * 0.7, [4, 4, 12, 12]);
+  const bodyGrad = ctx.createLinearGradient(-w/2, 0, w/2, 0);
+  bodyGrad.addColorStop(0, 'rgba(60,160,220,0.4)');
+  bodyGrad.addColorStop(0.3, 'rgba(150,230,255,0.7)');
+  bodyGrad.addColorStop(0.7, 'rgba(60,160,220,0.5)');
+  bodyGrad.addColorStop(1, 'rgba(30,100,160,0.4)');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180,240,255,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Şişe boynu
+  ctx.beginPath();
+  ctx.roundRect(-w/4, -h/2 - h*0.28, w/2, h * 0.3, [3,3,0,0]);
+  ctx.fillStyle = 'rgba(100,190,240,0.5)';
+  ctx.fill();
+  ctx.stroke();
+
+  // Kapak
+  ctx.beginPath();
+  ctx.roundRect(-w/4 - 2, -h/2 - h*0.28 - 8, w/2 + 4, 10, 2);
+  ctx.fillStyle = 'rgba(200,100,80,0.9)';
+  ctx.fill();
+
+  // Yansıma
+  ctx.beginPath();
+  ctx.roundRect(-w/2 + 4, -h/2 + 6, 6, h * 0.5, 3);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fill();
+
+  // İçindeki sıvı
+  ctx.beginPath();
+  ctx.roundRect(-w/2 + 3, -h/2 + h*0.15, w - 6, h * 0.45, [0,0,10,10]);
+  ctx.fillStyle = 'rgba(30,120,200,0.35)';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ---- KIRIŞ ANİMASYONU ----
+function smashBottle(b, impactX, impactY) {
+  b.broken = true;
+  b.shards = [];
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 7;
+    b.shards.push({
+      x: b.x + (Math.random() - 0.5) * b.w,
+      y: b.y + (Math.random() - 0.5) * b.h,
+      vx: Math.cos(angle) * speed + (impactX - b.x) * 0.05,
+      vy: Math.sin(angle) * speed - 4,
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 16,
+      h: 6 + Math.random() * 12,
+      life: 1,
+    });
+  }
+  spawnParticles(b.x, b.y, 'rgba(100,220,255,');
+  b.respawnTimer = 180; // 3 saniye @ 60fps
+
+  // Skor
+  combo = Math.min(combo + 1, 8);
+  comboTimer = 120;
+  score += 10 * combo;
+  scoreEl.textContent = score;
+  comboEl.textContent = `x${combo}`;
+
+  // Ekran flash
+  screenFlash = 8;
+}
+
+let screenFlash = 0;
+
+// ---- GÜNCELLEME ----
+let frameCount = 0;
+function update() {
+  frameCount++;
+
+  // Kombo süresi
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer === 0) {
+      combo = 1;
+      comboEl.textContent = 'x1';
+    }
+  }
+
+  // El varsa topu güncelle
+  if (handLandmarks) {
+    const fist = isFist(handLandmarks);
+    const center = handCenter(handLandmarks);
+
+    if (!hintShown) {
+      hintEl.style.opacity = '0';
+      hintShown = true;
     }
 
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
+    if (fist && !ball.thrown) {
+      // Top elde
+      ball.held = true;
+      ball.prevX = ball.x;
+      ball.prevY = ball.y;
+      ball.x = center.x;
+      ball.y = center.y;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.trail = [];
+    } else if (!fist && ball.held) {
+      // Fırlatma
+      ball.held = false;
+      ball.thrown = true;
+      const dx = ball.x - ball.prevX;
+      const dy = ball.y - ball.prevY;
+      ball.vx = dx * 1.8;
+      ball.vy = dy * 1.8;
+    }
+  } else {
+    if (ball.held) {
+      ball.held = false;
+      ball.thrown = true;
+    }
+  }
 
-    hands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-    hands.onResults(onResults);
+  // Top fiziği
+  if (!ball.held && ball.thrown) {
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > 10) ball.trail.shift();
 
-    // Ön kamera için doğru yöntem
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720, facingMode: 'user' }
-        });
-        videoElement.srcObject = stream;
-        videoElement.onloadedmetadata = () => {
-          videoElement.play();
-          // MediaPipe loop
-          const camera = new Camera(videoElement, {
-            onFrame: async () => {
-              await hands.send({ image: videoElement });
-            },
-            width: 1280,
-            height: 720
-          });
-          camera.start();
-        };
-      } catch (err) {
-        loadingText.textContent = '❌ Kamera erişimi reddedildi: ' + err.message;
-      }
+    ball.vy += 0.55; // yerçekimi
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Zemine çarptı
+    if (ball.y > H + ball.r * 2) {
+      ball.thrown = false;
+      ball.x = -999;
+      ball.trail = [];
     }
 
-    startCamera();
-  </script>
+    // Duvarlara çarpma
+    if (ball.x < ball.r) { ball.x = ball.r; ball.vx *= -0.6; }
+    if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx *= -0.6; }
 
+    // Şişelere çarpma (top fırlatılmışsa)
+    for (const b of bottles) {
+      if (b.broken) continue;
+      const dx = ball.x - b.x;
+      const dy = ball.y - b.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < ball.r + 30) {
+        smashBottle(b, ball.x, ball.y);
+        ball.vx *= -0.3;
+        ball.vy *= -0.5;
+      }
+    }
+  }
+
+  // Şişe güncelleme
+  for (const b of bottles) {
+    if (b.broken) {
+      // Parçaları hareket ettir
+      for (const s of b.shards) {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.4;
+        s.rot += s.vrot;
+        s.life -= 0.018;
+      }
+      // Yeniden doğma
+      b.respawnTimer--;
+      if (b.respawnTimer <= 0) {
+        const idx = bottles.indexOf(b);
+        bottles[idx] = createBottle(idx);
+        bottles[idx].wobble = 10; // Doğarken salla
+      }
+    } else {
+      // Wobble yavaşla
+      if (b.wobble > 0) b.wobble += 0.3;
+      if (b.wobble > Math.PI * 4) b.wobble = 0;
+      if (b.glowTimer > 0) b.glowTimer -= 0.05;
+    }
+  }
+
+  // Parçacıklar
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.2;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// ---- ÇİZİM ----
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Arka plan - hafif gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0d0d1a');
+  bg.addColorStop(1, '#050510');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Zemin çizgisi
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.88);
+  ctx.lineTo(W, H * 0.88);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Screen flash
+  if (screenFlash > 0) {
+    ctx.fillStyle = `rgba(100,220,255,${screenFlash / 80})`;
+    ctx.fillRect(0, 0, W, H);
+    screenFlash--;
+  }
+
+  // Şişeler
+  for (const b of bottles) drawBottle(b);
+
+  // Parçacıklar
+  for (const p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color + p.life + ')';
+    ctx.fill();
+  }
+
+  // Top
+  drawBall();
+
+  // El
+  if (handLandmarks) drawHand(handLandmarks);
+}
+
+// ---- ANA DÖNGÜ ----
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ---- MEDIAPIPE ----
+const hands = new Hands({
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.6,
+  minTrackingConfidence: 0.5
+});
+hands.onResults((results) => {
+  loading.style.display = 'none';
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    handLandmarks = results.multiHandLandmarks[0];
+  } else {
+    handLandmarks = null;
+  }
+});
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' }
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      video.play();
+      const camera = new Camera(video, {
+        onFrame: async () => { await hands.send({ image: video }); },
+        width: 1280, height: 720
+      });
+      camera.start();
+    };
+  } catch (err) {
+    document.querySelector('#loading p').textContent = '❌ Kamera izni gerekli: ' + err.message;
+    document.querySelector('.spinner').style.display = 'none';
+  }
+}
+startCamera();
+</script>
 </body>
 </html>
