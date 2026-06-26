@@ -1,59 +1,56 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Silah Fırlat</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;}
-    body{background:#0a0a0f;overflow:hidden;font-family:Arial,sans-serif;color:#fff;height:100vh;width:100vw;}
-    #gameCanvas{position:fixed;top:0;left:0;width:100%;height:100%;transform:scaleX(-1);}
-    .input_video{display:none;}
-    #loading{position:fixed;inset:0;background:#0a0a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:16px;}
-    #loading h1{font-size:28px;letter-spacing:3px;}
-    #loading p{opacity:.5;font-size:14px;text-align:center;padding:0 20px;}
-    .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
-    @keyframes spin{to{transform:rotate(360deg);}}
-    #ui{position:fixed;top:0;left:0;width:100%;pointer-events:none;z-index:10;padding:16px 20px;}
-    #score-box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 20px;text-align:center;backdrop-filter:blur(10px);display:inline-block;}
-    #score-box .label{font-size:11px;letter-spacing:2px;opacity:.6;text-transform:uppercase;}
-    #score-box .value{font-size:32px;font-weight:700;}
-    #weapon-select{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:20;}
-    .wpn-btn{background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.2);border-radius:14px;padding:10px 20px;cursor:pointer;font-size:20px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;pointer-events:all;transition:all .2s;}
-    .wpn-btn span{font-size:10px;letter-spacing:1px;opacity:.7;}
-    .wpn-btn.active{border-color:#fff;background:rgba(255,255,255,.15);}
-    #hint{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);font-size:13px;opacity:.6;pointer-events:none;z-index:10;white-space:nowrap;}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Silah Fırlat</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0a0f;overflow:hidden;font-family:Arial,sans-serif;color:#fff;height:100vh;width:100vw;}
+#gameCanvas{position:fixed;top:0;left:0;width:100%;height:100%;transform:scaleX(-1);}
+.input_video{display:none;}
+#loading{position:fixed;inset:0;background:#0a0a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:16px;}
+#loading h1{font-size:26px;letter-spacing:3px;}
+#loading p{opacity:.5;font-size:13px;text-align:center;padding:0 20px;}
+.spinner{width:38px;height:38px;border:3px solid rgba(255,255,255,.1);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#ui{position:fixed;top:0;left:0;width:100%;pointer-events:none;z-index:10;padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start;}
+#score-box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 18px;text-align:center;backdrop-filter:blur(10px);}
+#score-box .label{font-size:10px;letter-spacing:2px;opacity:.6;text-transform:uppercase;}
+#score-box .value{font-size:28px;font-weight:700;}
+#state-box{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;font-size:12px;opacity:.8;text-align:right;}
+#weapon-select{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:20;}
+.wpn-btn{background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.2);border-radius:14px;padding:10px 18px;cursor:pointer;font-size:19px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#fff;pointer-events:all;transition:all .2s;}
+.wpn-btn span{font-size:10px;letter-spacing:1px;opacity:.7;}
+.wpn-btn.active{border-color:#fff;background:rgba(255,255,255,.15);}
+</style>
 </head>
 <body>
 <div id="loading">
   <div class="spinner"></div>
-  <h1>SİLAH FIRLAT</h1>
-  <p>Kamera ve model yükleniyor...<br>Kamera iznini onaylamayı unutma</p>
+  <h1>⚡ 3D SİLAH FIRLAT</h1>
+  <p>Yükleniyor...<br><br>✊ Yumruk → aç = Fırlat<br>✋ El aç = Geri çağır</p>
 </div>
 <canvas id="gameCanvas"></canvas>
 <video class="input_video" autoplay playsinline></video>
 <div id="ui">
-  <div id="score-box">
-    <div class="label">Skor</div>
-    <div class="value" id="scoreVal">0</div>
-  </div>
+  <div id="score-box"><div class="label">Skor</div><div class="value" id="scoreVal">0</div></div>
+  <div id="state-box" id="stateBox">—</div>
 </div>
 <div id="weapon-select">
   <button class="wpn-btn active" id="btnMjolnir" onclick="selectWeapon('mjolnir')">⚡<span>MJOLNİR</span></button>
   <button class="wpn-btn" id="btnLeviathan" onclick="selectWeapon('leviathan')">🪓<span>LEVİATHAN</span></button>
 </div>
-<div id="hint">✊ Yumruk yap → aç → fırlat!</div>
-
 <script>
 const canvas=document.getElementById('gameCanvas');
 const ctx=canvas.getContext('2d');
 const video=document.querySelector('.input_video');
 const loading=document.getElementById('loading');
 const scoreEl=document.getElementById('scoreVal');
+const stateBox=document.getElementById('state-box');
 
 let W,H;
 function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
@@ -70,507 +67,346 @@ function selectWeapon(w){
   resetWeapon();
 }
 
-// ===================== SİLAH =====================
+// ============================================================
+// PROJEKSİYON
+// ============================================================
+const CAM_Z=-500;
+const FOV=650;
+function project(x3,y3,z3){
+  const dz=z3-CAM_Z;
+  if(dz<=10)return{x:W/2,y:H*.5,scale:0.001,visible:false};
+  const scale=FOV/dz;
+  return{x:W/2+x3*scale, y:H*.52+y3*scale, scale, visible:true};
+}
+// Ekran → 3D (belirli z'de)
+function unproject(sx,sy,z3){
+  const dz=z3-CAM_Z;
+  const scale=FOV/dz;
+  return{x:(sx-W/2)/scale, y:(sy-H*.52)/scale, z:z3};
+}
+
+// ============================================================
+// SİLAH STATE
+// ============================================================
+// States: 'resting' | 'throwing' | 'stuck' | 'returning' | 'hand'
+// 'resting'   → sahnede duruyor (kütük yanında veya yerde)
+// 'throwing'  → fırlatıldı, uçuyor
+// 'stuck'     → bir nesneye saplandı
+// 'returning' → Bezier ile ele dönüyor
+// 'hand'      → elde, fırlatmaya hazır
+
 const weapon={
-  x:-999,y:-999,        // ekran pozisyonu
-  vx:0,vy:0,            // hız
-  // 3D rotasyon açıları
-  rotX:0,rotY:0,rotZ:0,
-  rotVX:0,rotVY:0,rotVZ:0,
-  // Derinlik (0=yakın, 1=uzak) — perspektif için
-  depth:0, depthV:0,
-  scale:1,              // render ölçeği
-  state:'idle',         // idle | held | thrown | returning
-  _prevFist:false,
-  trail:[],
-  returnPath:[],returnT:0,
-  handX:W/2,handY:H/2,
+  x3:120, y3:110, z3:180,  // Başlangıç: sahne içinde kütük yanında
+  vx3:0, vy3:0, vz3:0,
+  rotX:0.3, rotY:0, rotZ:Math.PI*.15,
+  rotVX:0, rotVY:0, rotVZ:0,
+  state:'resting',
+  trail3:[],
+  returnPath3:[], returnT:0,
+  handX:W/2, handY:H*.7,
+  // Fırlatma için yumruk takibi
+  _fistFrames:0,
+  _prevOpen:false,
+  // Geri çağırma için açık el takibi
+  _openFrames:0,
+  // Sahnede bekleme sallanma
+  _bobT:0,
 };
 
 function resetWeapon(){
-  weapon.x=-999;weapon.y=-999;
-  weapon.vx=0;weapon.vy=0;
-  weapon.rotX=0;weapon.rotY=0;weapon.rotZ=0;
+  weapon.x3=120;weapon.y3=110;weapon.z3=180;
+  weapon.vx3=0;weapon.vy3=0;weapon.vz3=0;
+  weapon.rotX=0.3;weapon.rotY=0;weapon.rotZ=Math.PI*.15;
   weapon.rotVX=0;weapon.rotVY=0;weapon.rotVZ=0;
-  weapon.depth=0;weapon.depthV=0;weapon.scale=1;
-  weapon.state='idle';weapon._prevFist=false;
-  weapon.trail=[];weapon.returnPath=[];weapon.returnT=0;
+  weapon.state='resting';
+  weapon.trail3=[];weapon.returnPath3=[];weapon.returnT=0;
+  weapon._fistFrames=0;weapon._prevOpen=false;weapon._openFrames=0;weapon._bobT=0;
 }
 
-// ===================== HEDEFLER =====================
-let targets=[];
-function createTarget(idx){
-  const types=['shield','helmet','rock','orb'];
-  return{
-    x:80+(W-160)/5*idx+(Math.random()-.5)*30,
-    y:H*.22+(Math.random()-.5)*H*.12,
-    r:28+Math.random()*14,
-    type:types[idx%types.length],
-    broken:false,shards:[],respawnTimer:0,flash:0
-  };
+// ============================================================
+// HEDEFLER
+// ============================================================
+let objects=[];
+function createObj(idx){
+  const configs=[
+    {type:'log',   x3:-280, y3:90,  z3:220, r:38},
+    {type:'log',   x3:-80,  y3:85,  z3:310, r:36},
+    {type:'shield',x3:60,   y3:70,  z3:260, r:32},
+    {type:'rock',  x3:210,  y3:95,  z3:200, r:34},
+    {type:'barrel',x3:330,  y3:80,  z3:280, r:30},
+    {type:'log',   x3:-180, y3:88,  z3:350, r:36},
+  ];
+  const c=configs[idx]||configs[0];
+  return{...c, broken:false, shards:[], respawnTimer:0, flash:0, stuckWeapon:null, stuckAngle:0, stuckOffY:0};
 }
-function initTargets(){targets=[];for(let i=0;i<6;i++)targets.push(createTarget(i));}
-initTargets();
+function initObjects(){objects=[];for(let i=0;i<6;i++)objects.push(createObj(i));}
+initObjects();
 
-// ===================== PARÇACIKLAR =====================
+// ============================================================
+// PARÇACIKLAR
+// ============================================================
 let particles=[];
-function spawnParticles(x,y,color,count=20){
+function spawnParticles(x3,y3,z3,color,count=18){
   for(let i=0;i<count;i++){
-    const a=Math.random()*Math.PI*2,spd=4+Math.random()*10;
-    particles.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-4,
-      life:1,decay:.018+Math.random()*.025,r:3+Math.random()*7,color});
+    const a=Math.random()*Math.PI*2,b=(Math.random()-.5)*Math.PI,spd=30+Math.random()*70;
+    particles.push({x:x3,y:y3,z:z3,
+      vx:Math.cos(a)*Math.cos(b)*spd,vy:Math.sin(b)*spd-25,vz:Math.sin(a)*Math.cos(b)*spd,
+      life:1,decay:.018+Math.random()*.02,r:3+Math.random()*6,color});
   }
 }
-let screenFlash=0,screenFlashColor='rgba(255,220,50,';
+let screenFlash=0,flashColor='rgba(255,220,50,';
 
-// ===================== EL YARDIMCI =====================
+// ============================================================
+// EL YARDIMCI
+// ============================================================
 function lm(l){return{x:l.x*W,y:l.y*H};}
-function handCenter(lms){
-  const p0=lm(lms[0]),p9=lm(lms[9]);
-  return{x:(p0.x+p9.x)/2,y:(p0.y+p9.y)/2};
-}
-function isFist(lms){
-  const wrist=lm(lms[0]);let c=0;
+function handCenter(lms){const p0=lm(lms[0]),p9=lm(lms[9]);return{x:(p0.x+p9.x)/2,y:(p0.y+p9.y)/2};}
+function getHandOpenness(lms){
+  // 0=tam yumruk, 1=tam açık
+  const wrist=lm(lms[0]);
+  let sum=0;
   const tips=[8,12,16,20],bases=[5,9,13,17];
   for(let i=0;i<4;i++){
     const tip=lm(lms[tips[i]]),base=lm(lms[bases[i]]);
-    if(Math.hypot(tip.x-wrist.x,tip.y-wrist.y)<Math.hypot(base.x-wrist.x,base.y-wrist.y)*1.2)c++;
+    const tipD=Math.hypot(tip.x-wrist.x,tip.y-wrist.y);
+    const baseD=Math.hypot(base.x-wrist.x,base.y-wrist.y);
+    sum+=tipD/(baseD+1);
   }
-  return c>=3;
+  return Math.min(sum/4/1.5,1);
 }
 
-// ===================== BEZIER =====================
-function bezier3(p0,p1,p2,p3,t){
-  const mt=1-t;
+// ============================================================
+// BEZIER 3D
+// ============================================================
+function bez3(p0,p1,p2,p3,t){
+  const m=1-t;
   return{
-    x:mt*mt*mt*p0.x+3*mt*mt*t*p1.x+3*mt*t*t*p2.x+t*t*t*p3.x,
-    y:mt*mt*mt*p0.y+3*mt*mt*t*p1.y+3*mt*t*t*p2.y+t*t*t*p3.y
+    x:m*m*m*p0.x+3*m*m*t*p1.x+3*m*t*t*p2.x+t*t*t*p3.x,
+    y:m*m*m*p0.y+3*m*m*t*p1.y+3*m*t*t*p2.y+t*t*t*p3.y,
+    z:m*m*m*p0.z+3*m*m*t*p1.z+3*m*t*t*p2.z+t*t*t*p3.z,
   };
 }
 
-// ===================== KIRMA =====================
-function smashTarget(t){
-  if(t.broken)return;
-  t.broken=true;t.shards=[];
-  for(let i=0;i<16;i++){
-    const a=Math.random()*Math.PI*2,spd=4+Math.random()*9;
-    t.shards.push({x:t.x+(Math.random()-.5)*t.r,y:t.y+(Math.random()-.5)*t.r,
-      vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-5,
-      rot:Math.random()*Math.PI*2,vrot:(Math.random()-.5)*.3,
-      r:4+Math.random()*10,life:1});
-  }
-  const col=selectedWeapon==='mjolnir'?'rgba(255,220,50,':'rgba(80,200,255,';
-  spawnParticles(t.x,t.y,col,26);
-  screenFlash=12;
-  screenFlashColor=selectedWeapon==='mjolnir'?'rgba(255,220,50,':'rgba(80,180,255,';
-  score+=10;scoreEl.textContent=score;
-  t.respawnTimer=190;
-  setTimeout(()=>startReturn(),250);
-  weapon.state='returning'; // thrown değil artık
+// ============================================================
+// FIRL AT
+// ============================================================
+function throwWeapon(){
+  if(weapon.state!=='hand')return;
+  // Hedefe doğru fırlat — sahnedeki nesnelerin ortasına
+  weapon.vx3=(Math.random()-.5)*60;
+  weapon.vy3=-15;
+  weapon.vz3=220+Math.random()*80;
+  weapon.state='throwing';
+  weapon.trail3=[];
+  weapon.rotVX=(.1+Math.random()*.15)*(Math.random()>.5?1:-1);
+  weapon.rotVY=.25+Math.random()*.2;
+  weapon.rotVZ=(.04+Math.random()*.06)*(Math.random()>.5?1:-1);
 }
 
-// ===================== DÖNÜŞ =====================
-function startReturn(){
-  if(weapon.state==='returning')return;
+// ============================================================
+// GERİ ÇAĞIR
+// ============================================================
+function recallWeapon(){
+  if(weapon.state==='hand'||weapon.state==='returning')return;
   weapon.state='returning';weapon.returnT=0;
-  const hx=weapon.handX||W/2,hy=weapon.handY||H*.7;
-  const p0={x:weapon.x,y:weapon.y},p3={x:hx,y:hy};
-  // Kavis kontrol noktaları — her seferinde farklı taraftan gelsin
+  const hw=unproject(weapon.handX,weapon.handY,-200);
+  const p0={x:weapon.x3,y:weapon.y3,z:weapon.z3};
+  const p3={x:hw.x,y:hw.y,z:-200};
   const side=(Math.random()>.5?1:-1);
-  const cx=(p0.x+p3.x)/2+side*(W*.2+Math.random()*W*.15);
-  const cy=Math.min(p0.y,p3.y)-H*.2-Math.random()*H*.12;
-  weapon.returnPath=[];
-  for(let i=0;i<=80;i++)
-    weapon.returnPath.push(bezier3(p0,{x:p0.x+side*100,y:cy},{x:p3.x-side*80,y:cy},p3,i/80));
-  weapon.trail=[];
-  // Dönüş sırasında 3D spin hızlansın
-  weapon.rotVY=0.25+Math.random()*0.2;
-  weapon.rotVX=0.1+Math.random()*0.1;
+  const midZ=(p0.z+p3.z)/2;
+  const p1={x:p0.x+side*250,y:Math.min(p0.y,p3.y)-180,z:midZ+80};
+  const p2={x:p3.x-side*180,y:Math.min(p0.y,p3.y)-120,z:midZ-40};
+  weapon.returnPath3=[];
+  for(let i=0;i<=80;i++) weapon.returnPath3.push(bez3(p0,p1,p2,p3,i/80));
+  weapon.trail3=[];
+  weapon.rotVY=.3+Math.random()*.2;
+  weapon.rotVX=.08+Math.random()*.1;
 }
 
-// ===================== 3D PERSPEKTIF HESAP =====================
-// rotX, rotY, rotZ açılarından scaleX (derinlik hissi) hesapla
-function get3DParams(rotX,rotY,rotZ){
-  // Y ekseninde dönüş → soldan sağa "derinlik" — scaleX değişimi
-  const scaleXfromY=Math.cos(rotY);
-  // X ekseninde dönüş → yukarı aşağı "derinlik"
-  const scaleYfromX=Math.cos(rotX);
-  // Genel scale (derinlik simülasyonu)
-  const depthScale=0.85+0.15*Math.abs(Math.cos(rotY*0.5+rotX*0.3));
-  return{scaleX:scaleXfromY,scaleY:scaleYfromX,depthScale};
+// ============================================================
+// KIRMA / SAPLAMA
+// ============================================================
+function hitObject(obj){
+  if(obj.broken||obj.stuckWeapon)return;
+  const isLog=obj.type==='log';
+  if(isLog&&selectedWeapon==='leviathan'){
+    obj.stuckWeapon=selectedWeapon;
+    obj.stuckAngle=weapon.rotZ;
+    obj.stuckOffY=-obj.r*.6;
+    obj.flash=1;
+    spawnParticles(obj.x3,obj.y3,obj.z3,'rgba(120,220,255,',14);
+    weapon.state='stuck';
+    weapon.x3=obj.x3;weapon.y3=obj.y3+obj.stuckOffY;weapon.z3=obj.z3;
+    screenFlash=8;flashColor='rgba(80,200,255,';
+    score+=15;scoreEl.textContent=score;
+    setTimeout(()=>{obj.stuckWeapon=null;recallWeapon();},2000);
+  } else {
+    obj.broken=true;
+    for(let i=0;i<18;i++){
+      const a=Math.random()*Math.PI*2,b=(Math.random()-.5)*Math.PI,spd=25+Math.random()*55;
+      obj.shards.push({x:obj.x3,y:obj.y3,z:obj.z3,
+        vx:Math.cos(a)*Math.cos(b)*spd,vy:Math.sin(b)*spd-35,vz:Math.sin(a)*Math.cos(b)*spd,
+        rot:Math.random()*Math.PI*2,vrot:(Math.random()-.5)*.3,r:5+Math.random()*11,life:1});
+    }
+    const col=selectedWeapon==='mjolnir'?'rgba(255,220,50,':'rgba(80,200,255,';
+    spawnParticles(obj.x3,obj.y3,obj.z3,col,24);
+    screenFlash=12;flashColor=selectedWeapon==='mjolnir'?'rgba(255,220,50,':'rgba(80,200,255,';
+    score+=10;scoreEl.textContent=score;
+    obj.respawnTimer=210;
+    setTimeout(()=>recallWeapon(),300);
+    weapon.state='returning';
+  }
 }
 
-// ===================== SİLAH ÇİZİMİ =====================
-function drawWeapon(x,y,rotX,rotY,rotZ,scale){
-  const {scaleX,scaleY,depthScale}=get3DParams(rotX,rotY,rotZ);
-  const s=scale*depthScale;
-
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.rotate(rotZ);
-  // 3D perspektif: Y ekseninde dönüş scaleX'i etkiler
-  ctx.scale(scaleX*s, scaleY*s);
-
-  if(selectedWeapon==='mjolnir') _drawMjolnir();
-  else _drawLeviathan();
-
-  ctx.restore();
-}
-
-function _drawMjolnir(){
-  const t=Date.now()/180;
-  // Elektrik aura
-  for(let i=0;i<4;i++){
-    const a=t+i*Math.PI/2;
-    ctx.beginPath();ctx.arc(Math.cos(a)*22,Math.sin(a)*14,2+Math.sin(t*4+i)*2,0,Math.PI*2);
-    ctx.fillStyle=`rgba(120,200,255,${.4+Math.sin(t+i)*.2})`;ctx.fill();
+// ============================================================
+// ÇİZİM - SHAPES
+// ============================================================
+function drawMjolnirShape(){
+  const t=Date.now()/160;
+  // Elektrik topları
+  for(let i=0;i<5;i++){
+    const a=t+i*Math.PI*2/5;
+    ctx.beginPath();ctx.arc(Math.cos(a)*24,Math.sin(a)*16,2+Math.sin(t*5+i)*1.5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(100,180,255,${.55+Math.sin(t*3+i)*.3})`;ctx.fill();
+    if(i%2===0){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*14,Math.sin(a)*9);ctx.strokeStyle='rgba(160,210,255,.25)';ctx.lineWidth=1;ctx.stroke();}
   }
   // Sap
   ctx.beginPath();ctx.roundRect(-5,12,10,38,[3]);
-  const sg=ctx.createLinearGradient(-5,12,5,12);
-  sg.addColorStop(0,'#3a2010');sg.addColorStop(.5,'#8a6035');sg.addColorStop(1,'#3a2010');
+  const sg=ctx.createLinearGradient(-5,12,5,12);sg.addColorStop(0,'#3a2010');sg.addColorStop(.5,'#8a6035');sg.addColorStop(1,'#3a2010');
   ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle='#1a0a04';ctx.lineWidth=1;ctx.stroke();
-  // Sap sarması
   for(let i=0;i<4;i++){ctx.beginPath();ctx.rect(-6,15+i*8,12,5);ctx.fillStyle='rgba(160,110,50,.85)';ctx.fill();}
   // Baş
-  const hg=ctx.createLinearGradient(-24,-20,24,20);
-  hg.addColorStop(0,'#4a4a4a');hg.addColorStop(.25,'#d0d0d0');hg.addColorStop(.55,'#909090');hg.addColorStop(1,'#303030');
-  ctx.beginPath();ctx.roundRect(-24,-20,48,30,[5]);ctx.fillStyle=hg;ctx.fill();
-  ctx.strokeStyle='#1a1a1a';ctx.lineWidth=1.5;ctx.stroke();
-  // Çizgi detay
-  ctx.beginPath();ctx.roundRect(-20,-16,40,22,[3]);ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.stroke();
-  // Rün
-  ctx.fillStyle='rgba(80,160,255,.8)';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText('ᚦ',0,-4);
-  // Glow
-  const glow=ctx.createRadialGradient(0,0,0,0,0,35);
-  glow.addColorStop(0,'rgba(80,160,255,.25)');glow.addColorStop(1,'rgba(80,160,255,0)');
-  ctx.beginPath();ctx.arc(0,0,35,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
+  const hg=ctx.createLinearGradient(-25,-22,25,22);
+  hg.addColorStop(0,'#4a4a4a');hg.addColorStop(.25,'#d8d8d8');hg.addColorStop(.55,'#909090');hg.addColorStop(1,'#303030');
+  ctx.beginPath();ctx.roundRect(-25,-22,50,32,[5]);ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle='#1a1a1a';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='rgba(80,170,255,.9)';ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('ᚦ',0,-5);
+  const glow=ctx.createRadialGradient(0,0,0,0,0,38);glow.addColorStop(0,'rgba(80,160,255,.3)');glow.addColorStop(1,'rgba(80,160,255,0)');
+  ctx.beginPath();ctx.arc(0,0,38,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
 }
 
-function _drawLeviathan(){
-  const t=Date.now()/280;
-  // Buz kristal aura
-  for(let i=0;i<6;i++){
-    const a=t*.6+i*Math.PI*2/6;
-    const r1=22,r2=30;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);
-    ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);
-    ctx.strokeStyle=`rgba(120,220,255,${.25+Math.sin(t*2+i)*.15})`;ctx.lineWidth=1.5;ctx.stroke();
+function drawLeviathanShape(){
+  const t=Date.now()/250;
+  for(let i=0;i<7;i++){
+    const a=t*.5+i*Math.PI*2/7;
+    ctx.beginPath();ctx.moveTo(Math.cos(a)*24,Math.sin(a)*24);ctx.lineTo(Math.cos(a)*33,Math.sin(a)*33);
+    ctx.strokeStyle=`rgba(120,230,255,${.25+Math.sin(t*2+i)*.15})`;ctx.lineWidth=1.5;ctx.stroke();
   }
-  // Sap
-  ctx.beginPath();ctx.roundRect(-5,10,10,44,[3]);
-  const sapG=ctx.createLinearGradient(-5,10,5,10);
-  sapG.addColorStop(0,'#152535');sapG.addColorStop(.5,'#254565');sapG.addColorStop(1,'#152535');
+  ctx.beginPath();ctx.roundRect(-5,10,10,46,[3]);
+  const sapG=ctx.createLinearGradient(-5,10,5,10);sapG.addColorStop(0,'#152535');sapG.addColorStop(.5,'#254565');sapG.addColorStop(1,'#152535');
   ctx.fillStyle=sapG;ctx.fill();ctx.strokeStyle='#091520';ctx.lineWidth=1;ctx.stroke();
-  // Sap sarması
-  for(let i=0;i<3;i++){
-    ctx.beginPath();ctx.rect(-6,14+i*11,12,6);
-    ctx.fillStyle='rgba(80,160,200,.7)';ctx.fill();
-  }
-  // Balta baş — büyük asimetrik
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.rect(-6,14+i*12,12,7);ctx.fillStyle='rgba(80,160,200,.7)';ctx.fill();}
   ctx.beginPath();
-  ctx.moveTo(-6,-10);
-  ctx.bezierCurveTo(-6,-30,20,-38,34,-24);
-  ctx.bezierCurveTo(42,-14,42,14,34,22);
-  ctx.bezierCurveTo(20,36,-6,28,-6,10);
-  ctx.lineTo(-18,0);
-  ctx.closePath();
-  const axG=ctx.createLinearGradient(-18,-38,42,36);
-  axG.addColorStop(0,'#0e2840');axG.addColorStop(.3,'#1e6090');axG.addColorStop(.55,'#40a8d8');axG.addColorStop(1,'#0e2030');
+  ctx.moveTo(-6,-10);ctx.bezierCurveTo(-6,-32,20,-42,36,-26);ctx.bezierCurveTo(45,-14,45,16,36,26);ctx.bezierCurveTo(20,40,-6,30,-6,10);ctx.lineTo(-20,0);ctx.closePath();
+  const axG=ctx.createLinearGradient(-20,-42,45,40);axG.addColorStop(0,'#0e2840');axG.addColorStop(.3,'#1e6090');axG.addColorStop(.55,'#40b0e0');axG.addColorStop(1,'#0e2030');
   ctx.fillStyle=axG;ctx.fill();ctx.strokeStyle='#081828';ctx.lineWidth=1.5;ctx.stroke();
-  // Buz kristal iç çizgiler
-  ctx.strokeStyle='rgba(180,240,255,.3)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(-2,0);ctx.lineTo(22,-14);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(-2,0);ctx.lineTo(24,10);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(12,-8);ctx.lineTo(12,12);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(4,-4);ctx.lineTo(30,-10);ctx.stroke();
-  // Keskin kenar parlaması
-  ctx.save();
-  ctx.beginPath();
-  ctx.bezierCurveTo(42,-14,42,14,34,22);
-  ctx.strokeStyle='rgba(200,245,255,.8)';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.strokeStyle='rgba(180,240,255,.35)';ctx.lineWidth=1;
+  [[0,0,22,-16],[0,0,24,12],[12,-8,12,14],[4,-4,32,-12]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+  ctx.beginPath();ctx.bezierCurveTo(45,-14,45,16,36,26);ctx.strokeStyle='rgba(200,245,255,.85)';ctx.lineWidth=2.5;ctx.stroke();
+  const ig=ctx.createRadialGradient(14,-4,0,14,-4,44);ig.addColorStop(0,'rgba(80,200,255,.2)');ig.addColorStop(1,'rgba(80,200,255,0)');
+  ctx.beginPath();ctx.arc(14,-4,44,0,Math.PI*2);ctx.fillStyle=ig;ctx.fill();
+}
+
+function drawWeapon3D(x3,y3,z3,rotX,rotY,rotZ,alpha=1){
+  const proj=project(x3,y3,z3);
+  if(!proj.visible||proj.scale<0.005)return;
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(proj.x,proj.y);
+  ctx.rotate(rotZ);ctx.scale(Math.cos(rotY)*proj.scale*75, Math.cos(rotX)*proj.scale*75);
+  if(selectedWeapon==='mjolnir')drawMjolnirShape();else drawLeviathanShape();
   ctx.restore();
-  // Buz glow
-  const ig=ctx.createRadialGradient(14,-4,0,14,-4,40);
-  ig.addColorStop(0,'rgba(80,200,255,.18)');ig.addColorStop(1,'rgba(80,200,255,0)');
-  ctx.beginPath();ctx.arc(14,-4,40,0,Math.PI*2);ctx.fillStyle=ig;ctx.fill();
 }
 
-// ===================== TRAIL ÇİZİMİ =====================
-function drawTrail(){
-  if(weapon.trail.length<2)return;
-  const isMj=selectedWeapon==='mjolnir';
-  for(let i=1;i<weapon.trail.length;i++){
-    const p0=weapon.trail[i-1],p1=weapon.trail[i];
-    const prog=i/weapon.trail.length;
-    const alpha=prog*0.7;
-    const w=prog*10;
-    // Ana trail çizgisi
-    ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);
-    ctx.strokeStyle=isMj?`rgba(255,200,80,${alpha})`:`rgba(60,190,255,${alpha})`;
-    ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke();
-    // Parlak iç çizgi
-    ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);
-    ctx.strokeStyle=isMj?`rgba(255,255,200,${alpha*.6})`:`rgba(200,240,255,${alpha*.6})`;
-    ctx.lineWidth=w*.3;ctx.stroke();
+// ============================================================
+// NESNELER ÇİZİMİ
+// ============================================================
+function drawLog(proj,obj){
+  const s=proj.scale*75;
+  ctx.save();ctx.translate(proj.x,proj.y);
+  if(obj.flash>0){ctx.shadowColor='rgba(255,160,50,.9)';ctx.shadowBlur=22*obj.flash;}
+  // Kütük gövdesi
+  ctx.beginPath();ctx.ellipse(0,0,s*.5,s*1.05,0,0,Math.PI*2);
+  const lg=ctx.createRadialGradient(-s*.15,-s*.15,0,0,0,s*1.1);
+  lg.addColorStop(0,'#6a3015');lg.addColorStop(.5,'#4a2010');lg.addColorStop(1,'#1e0c04');
+  ctx.fillStyle=lg;ctx.fill();ctx.strokeStyle='#150804';ctx.lineWidth=1.5*proj.scale;ctx.stroke();
+  // Yıllık halkalar
+  for(let r=.18;r<.92;r+=.22){
+    ctx.beginPath();ctx.ellipse(0,0,s*.5*r,s*.32*r,0,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(110,55,20,.4)`;ctx.lineWidth=proj.scale;ctx.stroke();
   }
+  // Çatlak çizgi
+  ctx.beginPath();ctx.moveTo(-s*.08,-s*.55);ctx.quadraticCurveTo(s*.1,0,s*.05,s*.6);
+  ctx.strokeStyle='rgba(15,5,2,.7)';ctx.lineWidth=2*proj.scale;ctx.stroke();
+  // Saplanmış silah
+  if(obj.stuckWeapon){
+    ctx.save();ctx.translate(0,-s*.45);ctx.rotate(obj.stuckAngle+Math.PI*.5);
+    ctx.scale(proj.scale*60,proj.scale*60);drawLeviathanShape();ctx.restore();
+    // Buz parıltısı
+    const ig=ctx.createRadialGradient(0,-s*.45,0,0,-s*.45,s*.5);
+    ig.addColorStop(0,'rgba(80,200,255,.2)');ig.addColorStop(1,'rgba(80,200,255,0)');
+    ctx.beginPath();ctx.arc(0,-s*.45,s*.5,0,Math.PI*2);ctx.fillStyle=ig;ctx.fill();
+  }
+  ctx.restore();
+}
+function drawShield3D(proj,obj){
+  const s=proj.scale*75;ctx.save();ctx.translate(proj.x,proj.y);
+  if(obj.flash>0){ctx.shadowColor='rgba(255,220,50,.9)';ctx.shadowBlur=20*obj.flash;}
+  ctx.beginPath();ctx.moveTo(0,-s*.85);ctx.lineTo(s*.72,-s*.42);ctx.lineTo(s*.72,s*.22);ctx.lineTo(0,s*.8);ctx.lineTo(-s*.72,s*.22);ctx.lineTo(-s*.72,-s*.42);ctx.closePath();
+  const sg=ctx.createRadialGradient(-s*.18,-s*.18,0,0,0,s*.85);sg.addColorStop(0,'#7090b8');sg.addColorStop(1,'#1a3858');
+  ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle='#90b8d8';ctx.lineWidth=2*proj.scale;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-s*.6);ctx.lineTo(0,s*.6);ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=2*proj.scale;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-s*.5,0);ctx.lineTo(s*.5,0);ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.5*proj.scale;ctx.stroke();
+  ctx.restore();
+}
+function drawRock3D(proj,obj){
+  const s=proj.scale*75;ctx.save();ctx.translate(proj.x,proj.y);
+  if(obj.flash>0){ctx.shadowColor='rgba(255,220,50,.9)';ctx.shadowBlur=20*obj.flash;}
+  ctx.beginPath();
+  const pts=[];for(let i=0;i<9;i++){const a=i/9*Math.PI*2,r=s*(.65+Math.sin(i*2.3+1)*.3);pts.push([Math.cos(a)*r,Math.sin(a)*r]);}
+  ctx.moveTo(pts[0][0],pts[0][1]);for(const p of pts)ctx.lineTo(p[0],p[1]);ctx.closePath();
+  const rg=ctx.createRadialGradient(-s*.2,-s*.2,0,0,0,s);rg.addColorStop(0,'#909090');rg.addColorStop(.6,'#505050');rg.addColorStop(1,'#252525');
+  ctx.fillStyle=rg;ctx.fill();ctx.strokeStyle='#181818';ctx.lineWidth=2*proj.scale;ctx.stroke();
+  ctx.restore();
+}
+function drawBarrel3D(proj,obj){
+  const s=proj.scale*75;ctx.save();ctx.translate(proj.x,proj.y);
+  if(obj.flash>0){ctx.shadowColor='rgba(255,220,50,.9)';ctx.shadowBlur=20*obj.flash;}
+  const bg=ctx.createLinearGradient(-s*.5,-s*.75,s*.5,s*.75);
+  bg.addColorStop(0,'#5a3010');bg.addColorStop(.4,'#c07030');bg.addColorStop(.7,'#8a5020');bg.addColorStop(1,'#3a1a08');
+  ctx.beginPath();ctx.roundRect(-s*.5,-s*.75,s,s*1.5,[s*.28]);ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle='#2a1005';ctx.lineWidth=2*proj.scale;ctx.stroke();
+  for(let i=-1;i<=1;i++){ctx.beginPath();ctx.rect(-s*.55,(i*s*.48-s*.055),s*1.1,s*.11);ctx.fillStyle='rgba(55,30,8,.9)';ctx.fill();ctx.strokeStyle='#1a0a02';ctx.lineWidth=proj.scale;ctx.stroke();}
+  ctx.restore();
 }
 
-// ===================== DÖNÜŞ YOLU ÇİZİMİ =====================
-function drawReturnPath(){
-  if(weapon.state!=='returning'||weapon.returnPath.length<2)return;
-  const isMj=selectedWeapon==='mjolnir';
-  ctx.save();ctx.setLineDash([5,9]);ctx.lineDashOffset=-Date.now()/35;
-  for(let i=1;i<weapon.returnPath.length;i++){
-    const prog=i/weapon.returnPath.length;
-    if(prog<weapon.returnT-0.02)continue; // geçilmiş kısmı çizme
-    const r0=weapon.returnPath[i-1],r1=weapon.returnPath[i];
-    ctx.beginPath();ctx.moveTo(r0.x,r0.y);ctx.lineTo(r1.x,r1.y);
-    ctx.strokeStyle=isMj?`rgba(200,230,255,${prog*.4})`:`rgba(80,200,255,${prog*.4})`;
-    ctx.lineWidth=1.8;ctx.stroke();
-  }
-  ctx.setLineDash([]);ctx.restore();
-}
-
-// ===================== EL ÇİZİMİ =====================
-function drawHand(lms){
-  if(!lms)return;
-  const fingers=[[0,1,2,3,4],[0,5,6,7,8],[0,9,10,11,12],[0,13,14,15,16],[0,17,18,19,20]];
-  const palmPts=[0,1,5,9,13,17].map(i=>lm(lms[i]));
-  ctx.beginPath();ctx.moveTo(palmPts[0].x,palmPts[0].y);
-  for(const p of palmPts)ctx.lineTo(p.x,p.y);ctx.closePath();
-  ctx.fillStyle='rgba(255,200,150,.2)';ctx.fill();
-  ctx.strokeStyle='rgba(255,200,150,.4)';ctx.lineWidth=2;ctx.stroke();
-  for(const f of fingers){
-    ctx.beginPath();
-    for(let i=0;i<f.length;i++){const p=lm(lms[f[i]]);i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
-    ctx.strokeStyle='rgba(255,200,150,.65)';ctx.lineWidth=4;ctx.lineCap='round';ctx.stroke();
-  }
-  for(let i=0;i<lms.length;i++){
-    const p=lm(lms[i]);
-    ctx.beginPath();ctx.arc(p.x,p.y,i===0?7:3.5,0,Math.PI*2);
-    ctx.fillStyle=i===0?'rgba(255,140,70,.9)':'rgba(255,215,170,.8)';ctx.fill();
-  }
-}
-
-// ===================== HEDEF ÇİZİMİ =====================
-function drawTarget(t){
-  if(t.broken){
-    for(const s of t.shards){
-      ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.rot);ctx.globalAlpha=s.life;
-      ctx.beginPath();ctx.arc(0,0,s.r,0,Math.PI*2);
-      ctx.fillStyle='rgba(140,145,175,.75)';ctx.fill();
-      ctx.strokeStyle='rgba(200,205,225,.5)';ctx.lineWidth=1;ctx.stroke();
+function drawObjectAt(obj){
+  if(obj.broken){
+    for(const s of obj.shards){
+      const p=project(s.x,s.y,s.z);if(!p.visible)continue;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(s.rot);ctx.globalAlpha=s.life;
+      ctx.beginPath();ctx.arc(0,0,s.r*p.scale*50,0,Math.PI*2);
+      ctx.fillStyle='rgba(140,110,80,.85)';ctx.fill();ctx.strokeStyle='rgba(200,170,130,.5)';ctx.lineWidth=p.scale*25;ctx.stroke();
       ctx.restore();
     }
     return;
   }
-  ctx.save();ctx.translate(t.x,t.y);
-  if(t.flash>0){ctx.shadowColor=selectedWeapon==='mjolnir'?'rgba(255,230,80,.9)':'rgba(80,200,255,.9)';ctx.shadowBlur=25*t.flash;}
-  if(t.type==='shield'){
-    ctx.beginPath();
-    ctx.moveTo(0,-t.r);ctx.lineTo(t.r*.8,-t.r*.5);ctx.lineTo(t.r*.8,t.r*.3);
-    ctx.lineTo(0,t.r);ctx.lineTo(-t.r*.8,t.r*.3);ctx.lineTo(-t.r*.8,-t.r*.5);ctx.closePath();
-    const sg=ctx.createRadialGradient(-t.r*.2,-t.r*.2,0,0,0,t.r);
-    sg.addColorStop(0,'#7090b0');sg.addColorStop(1,'#203858');
-    ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle='#90b8d8';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.moveTo(0,-t.r*.7);ctx.lineTo(0,t.r*.7);ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5;ctx.stroke();
-    ctx.beginPath();ctx.moveTo(-t.r*.6,0);ctx.lineTo(t.r*.6,0);ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.2;ctx.stroke();
-  }else if(t.type==='helmet'){
-    ctx.beginPath();ctx.arc(0,-t.r*.1,t.r,Math.PI,Math.PI*2);ctx.lineTo(t.r*.9,t.r*.35);ctx.lineTo(-t.r*.9,t.r*.35);ctx.closePath();
-    const hg=ctx.createRadialGradient(-t.r*.3,-t.r*.4,0,0,0,t.r);
-    hg.addColorStop(0,'#b8b8b8');hg.addColorStop(1,'#404040');
-    ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle='#606060';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.arc(0,-t.r*.1,t.r*.6,Math.PI*1.1,Math.PI*1.9);ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=3;ctx.stroke();
-    ctx.beginPath();ctx.rect(-t.r*.15,t.r*.05,t.r*.3,t.r*.28);ctx.fillStyle='rgba(30,30,30,.8)';ctx.fill();
-  }else if(t.type==='rock'){
-    ctx.beginPath();
-    const pts=[];for(let i=0;i<8;i++){const a=i/8*Math.PI*2,r=t.r*(.65+Math.sin(i*2.3+1)*.32);pts.push([Math.cos(a)*r,Math.sin(a)*r]);}
-    ctx.moveTo(pts[0][0],pts[0][1]);for(const p of pts)ctx.lineTo(p[0],p[1]);ctx.closePath();
-    const rg=ctx.createRadialGradient(-t.r*.25,-t.r*.25,0,0,0,t.r);
-    rg.addColorStop(0,'#909090');rg.addColorStop(.6,'#505050');rg.addColorStop(1,'#282828');
-    ctx.fillStyle=rg;ctx.fill();ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.moveTo(-t.r*.3,-t.r*.4);ctx.lineTo(t.r*.2,-t.r*.1);ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1.5;ctx.stroke();
-  }else{
-    // orb
-    const og=ctx.createRadialGradient(-t.r*.35,-t.r*.35,0,0,0,t.r);
-    og.addColorStop(0,'#ffe880');og.addColorStop(.45,'#cc8800');og.addColorStop(1,'#5a2800');
-    ctx.beginPath();ctx.arc(0,0,t.r,0,Math.PI*2);ctx.fillStyle=og;ctx.fill();
-    ctx.strokeStyle='rgba(255,200,50,.55)';ctx.lineWidth=2;ctx.stroke();
-    const glow=ctx.createRadialGradient(0,0,t.r*.5,0,0,t.r*1.6);
-    glow.addColorStop(0,'rgba(255,200,50,.18)');glow.addColorStop(1,'rgba(255,200,50,0)');
-    ctx.beginPath();ctx.arc(0,0,t.r*1.6,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
-    // iç ışık çizgileri
-    for(let i=0;i<4;i++){
-      const a=i*Math.PI/2+Date.now()/1200;
-      ctx.beginPath();ctx.moveTo(Math.cos(a)*t.r*.2,Math.sin(a)*t.r*.2);
-      ctx.lineTo(Math.cos(a)*t.r*.75,Math.sin(a)*t.r*.75);
-      ctx.strokeStyle='rgba(255,230,120,.25)';ctx.lineWidth=1.5;ctx.stroke();
-    }
-  }
-  ctx.restore();
+  const proj=project(obj.x3,obj.y3,obj.z3);
+  if(!proj.visible)return;
+  if(obj.type==='log')drawLog(proj,obj);
+  else if(obj.type==='shield')drawShield3D(proj,obj);
+  else if(obj.type==='rock')drawRock3D(proj,obj);
+  else if(obj.type==='barrel')drawBarrel3D(proj,obj);
 }
 
-// ===================== GÜNCELLEME =====================
-function update(){
-  // El işleme
-  if(handLandmarks){
-    const fist=isFist(handLandmarks);
-    const center=handCenter(handLandmarks);
-    weapon.handX=center.x;weapon.handY=center.y;
-
-    if(weapon.state==='idle'||weapon.state==='held'){
-      if(!fist){
-        // El açık — silahı elde tut
-        weapon.state='held';
-        weapon.x=center.x;weapon.y=center.y;
-        weapon.vx=0;weapon.vy=0;
-        weapon.rotZ=Math.atan2(center.y-(weapon.y||center.y),center.x-(weapon.x||center.x));
-        weapon.trail=[];
-        weapon._prevFist=false;
-      } else {
-        // Yumruk yapıldı
-        weapon._prevFist=true;
-      }
-    }
-
-    // Yumruktan açılınca fırlat
-    if(weapon._prevFist&&!fist&&weapon.state==='held'){
-      // Hız: son birkaç frame'deki hareket
-      weapon.vx=(center.x-weapon.x)*0.4;
-      weapon.vy=(center.y-weapon.y)*0.4-4;
-      // Kısa hareket → yukarı fırlat
-      if(Math.hypot(weapon.vx,weapon.vy)<3){weapon.vx=(Math.random()-.5)*6;weapon.vy=-14;}
-      weapon.state='thrown';
-      weapon._prevFist=false;
-      // 3D spin başlat
-      weapon.rotVX=(.1+Math.random()*.15)*(Math.random()>.5?1:-1);
-      weapon.rotVY=(.2+Math.random()*.25)*(Math.random()>.5?1:-1);
-      weapon.rotVZ=(.05+Math.random()*.08)*(Math.random()>.5?1:-1);
-    }
-  } else {
-    weapon._prevFist=false;
-    if(weapon.state==='held') weapon.state='idle';
-  }
-
-  // Fırlatılmış fizik
-  if(weapon.state==='thrown'){
-    weapon.trail.push({x:weapon.x,y:weapon.y});
-    if(weapon.trail.length>22)weapon.trail.shift();
-    weapon.vy+=0.35;
-    weapon.x+=weapon.vx;weapon.y+=weapon.vy;
-    weapon.vx*=0.995;
-    // 3D spin
-    weapon.rotX+=weapon.rotVX;weapon.rotY+=weapon.rotVY;weapon.rotZ+=weapon.rotVZ;
-
-    const out=weapon.x<-120||weapon.x>W+120||weapon.y>H+120||weapon.y<-300;
-    const slow=Math.abs(weapon.vx)<1.5&&Math.abs(weapon.vy)<2&&weapon.y>H*.6;
-    if(out||slow)startReturn();
-
-    for(const t of targets){if(!t.broken&&Math.hypot(weapon.x-t.x,weapon.y-t.y)<t.r+20)smashTarget(t);}
-  }
-
-  // Geri dönüş
-  if(weapon.state==='returning'){
-    weapon.returnT=Math.min(1,weapon.returnT+.014);
-    // Son noktayı güncel el pozisyonuna çek
-    if(weapon.returnPath.length>0){
-      const last=weapon.returnPath[weapon.returnPath.length-1];
-      last.x+=(weapon.handX-last.x)*.1;
-      last.y+=(weapon.handY-last.y)*.1;
-    }
-    const idx=Math.floor(weapon.returnT*(weapon.returnPath.length-1));
-    const pt=weapon.returnPath[Math.min(idx,weapon.returnPath.length-1)];
-    weapon.x=pt.x;weapon.y=pt.y;
-    weapon.rotX+=weapon.rotVX;weapon.rotY+=weapon.rotVY;weapon.rotZ+=weapon.rotVZ;
-    // Dönerken hızlan
-    weapon.rotVY=Math.min(weapon.rotVY+.005,.4);
-    if(weapon.returnT>=1){weapon.state='idle';weapon.trail=[];weapon.rotVX=0;weapon.rotVY=0;weapon.rotVZ=0;}
-  }
-
-  // Held'de yavaş dönsün
-  if(weapon.state==='held'){
-    weapon.rotY+=.03;weapon.rotX+=.01;
-  }
-
-  // Parçacıklar
-  for(let i=particles.length-1;i>=0;i--){
-    const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.2;p.life-=p.decay;
-    if(p.life<=0)particles.splice(i,1);
-  }
-
-  // Hedefler
-  for(const t of targets){
-    if(t.broken){
-      for(const s of t.shards){s.x+=s.vx;s.y+=s.vy;s.vy+=.38;s.rot+=s.vrot;s.life-=.014;}
-      t.respawnTimer--;
-      if(t.respawnTimer<=0){const idx2=targets.indexOf(t);targets[idx2]=createTarget(idx2);}
-    } else {
-      if(t.flash>0)t.flash-=.04;
-    }
-  }
-  if(screenFlash>0)screenFlash--;
-}
-
-// ===================== ÇİZİM =====================
-function draw(){
-  ctx.clearRect(0,0,W,H);
-  const bg=ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#0c0c1a');bg.addColorStop(1,'#040410');
-  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-
-  // Zemin çizgisi
-  ctx.beginPath();ctx.moveTo(0,H*.88);ctx.lineTo(W,H*.88);
-  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;ctx.stroke();
-
-  if(screenFlash>0){ctx.fillStyle=screenFlashColor+(screenFlash/100)+')';ctx.fillRect(0,0,W,H);}
-
-  for(const t of targets)drawTarget(t);
-
-  for(const p of particles){
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.fillStyle=p.color+p.life+')';ctx.fill();
-  }
-
-  drawReturnPath();
-  drawTrail();
-
-  if(weapon.x>-100 && weapon.state!=='idle'){
-    const sc=weapon.state==='held'?1.1:1;
-    drawWeapon(weapon.x,weapon.y,weapon.rotX,weapon.rotY,weapon.rotZ,sc);
-  }
-
-  drawHand(handLandmarks);
-}
-
-function loop(){update();draw();requestAnimationFrame(loop);}
-loop();
-
-// ===================== MEDIAPIPE =====================
-const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.65,minTrackingConfidence:.55});
-hands.onResults(r=>{
-  loading.style.display='none';
-  handLandmarks=(r.multiHandLandmarks&&r.multiHandLandmarks.length>0)?r.multiHandLandmarks[0]:null;
-});
-
-async function startCamera(){
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user'}});
-    video.srcObject=stream;
-    video.onloadedmetadata=()=>{
-      video.play();
-      const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video});},width:1280,height:720});
-      cam.start();
-    };
-  }catch(err){
-    document.querySelector('#loading p').textContent='Kamera izni gerekli: '+err.message;
-    document.querySelector('.spinner').style.display='none';
-  }
-}
-startCamera();
-</script>
-</body>
-</html>
+// ============================================================
+// TRAIL & DÖNÜŞ YOLU
+// ============================================================
+function drawTrail(){
+  if(weapon.trail3.length<2)return;
+  const isMj=selectedWeapon==='mjolnir';
+  for(let i=1;i<weapon.trail3.length;i++){
+    const prog=i/weapon.trail3.length;
+    const p0=project(weapon.trail3[i-1].x,weapon.trail3[i-1].y,weapon.trail3[i-1].z);
+    const p1=project(weapon.trail3[i].x,weapon.trail3[i].y,weapon.trail3[i].z);
+    if(!p0.visible||!p1.visible)continue;
+    ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);
+    ctx.strokeStyle=isMj?`rgba(255,210,60,${prog*.8})`:`rgba(60,200,255,${prog*.8})`;
+    ctx.lineWidth=Math.max(prog*p1.scale*200,1);ctx.lineCap='round';ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p0.x,p0
