@@ -266,7 +266,7 @@ function drawLeviathan() {
 function drawWeapon3D(x, y, z, rx, ry, rz, al = 1) {
   const p = proj(x, y, z); if (!p.ok) return;
   ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y);
-  ctx.rotate(rz); ctx.scale(Math.cos(ry) * p.s * 72, Math.cos(rx) * p.s * 72);
+  ctx.rotate(rz); ctx.scale(Math.cos(ry) * p.s * 28, Math.cos(rx) * p.s * 28);
   weapon === 'mjolnir' ? drawMjolnir() : drawLeviathan();
   ctx.restore();
 }
@@ -318,7 +318,7 @@ function drawLog(p, o) {
   for (let r = .18; r < .9; r += .22) { ctx.beginPath(); ctx.ellipse(0, 0, s * .48 * r, s * .3 * r, 0, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(110,55,20,.38)'; ctx.lineWidth = p.s; ctx.stroke(); }
   ctx.beginPath(); ctx.moveTo(-s * .07, -s * .52); ctx.quadraticCurveTo(s * .1, 0, s * .04, s * .55); ctx.strokeStyle = 'rgba(15,5,2,.65)'; ctx.lineWidth = 2 * p.s; ctx.stroke();
   if (o.stuckW) {
-    ctx.save(); ctx.translate(0, -s * .42); ctx.rotate(o.stuckA + Math.PI * .5); ctx.scale(p.s * 58, p.s * 58); drawLeviathan(); ctx.restore();
+    ctx.save(); ctx.translate(0, -s * .42); ctx.rotate(o.stuckA + Math.PI * .5); ctx.scale(p.s * 22, p.s * 22); drawLeviathan(); ctx.restore();
     const ig = ctx.createRadialGradient(0, -s * .42, 0, 0, -s * .42, s * .45);
     ig.addColorStop(0, 'rgba(80,200,255,.18)'); ig.addColorStop(1, 'rgba(80,200,255,0)');
     ctx.beginPath(); ctx.arc(0, -s * .42, s * .45, 0, Math.PI * 2); ctx.fillStyle = ig; ctx.fill();
