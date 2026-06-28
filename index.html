@@ -3,531 +3,493 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Silah Fırlat</title>
+<title>Metal Top</title>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #0a0a14; overflow: hidden; font-family: Arial, sans-serif; color: #fff; height: 100vh; width: 100vw; }
-#gameCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+#c { position: fixed; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
 video { display: none; }
-#loading {
-  position: fixed; inset: 0; background: #0a0a14;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 99; gap: 14px; text-align: center; padding: 20px;
-}
-#loading h1 { font-size: 24px; letter-spacing: 2px; }
-#loading p { font-size: 13px; opacity: .6; line-height: 1.8; }
+#loading { position: fixed; inset: 0; background: #0a0a14; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99; gap: 14px; text-align: center; padding: 20px; }
+#loading h1 { font-size: 22px; letter-spacing: 2px; }
+#loading p { font-size: 13px; opacity: .6; line-height: 2; }
 .sp { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: sp .8s linear infinite; }
 @keyframes sp { to { transform: rotate(360deg); } }
-#ui { position: fixed; top: 14px; left: 14px; z-index: 10; pointer-events: none; }
-#scorebox { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 16px; display: inline-block; }
-#scorebox .l { font-size: 10px; letter-spacing: 2px; opacity: .5; text-transform: uppercase; }
-#scorebox .v { font-size: 26px; font-weight: 700; }
-#statelabel { position: fixed; top: 14px; right: 14px; z-index: 10; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 8px 12px; font-size: 12px; opacity: .85; pointer-events: none; }
-#wsel { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 20; }
-.wb { background: rgba(0,0,0,.6); border: 2px solid rgba(255,255,255,.2); border-radius: 12px; padding: 10px 16px; cursor: pointer; font-size: 18px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #fff; transition: all .2s; }
-.wb span { font-size: 10px; letter-spacing: 1px; opacity: .65; }
-.wb.on { border-color: #fff; background: rgba(255,255,255,.14); }
+#score { position: fixed; top: 16px; left: 16px; z-index: 10; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 16px; pointer-events: none; }
+#score .l { font-size: 10px; letter-spacing: 2px; opacity: .5; text-transform: uppercase; }
+#score .v { font-size: 26px; font-weight: 700; }
+#hint { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 8px 18px; font-size: 12px; opacity: .75; pointer-events: none; white-space: nowrap; }
 </style>
 </head>
 <body>
 <div id="loading">
   <div class="sp"></div>
-  <h1>⚡ SİLAH FIRLAT</h1>
-  <p id="loadmsg">Model yükleniyor...<br><br>✊ Yumruk yap sonra aç = Fırlat<br>✋ El tam aç = Geri çağır</p>
+  <h1>⚙️ METAL TOP</h1>
+  <p id="lp">Model yükleniyor...<br><br>✋ El aç → top elde<br>✊ Yumruk yap → aç → fırlat<br>✋ El aç → geri çağır</p>
 </div>
-<canvas id="gameCanvas"></canvas>
-<video id="vid" autoplay playsinline muted></video>
-<div id="ui">
-  <div id="scorebox"><div class="l">Skor</div><div class="v" id="scoreVal">0</div></div>
-</div>
-<div id="statelabel" id="stlbl">—</div>
-<div id="wsel">
-  <button class="wb on" id="btnM" onclick="selWeapon('mjolnir')">⚡<span>MJOLNİR</span></button>
-  <button class="wb" id="btnL" onclick="selWeapon('leviathan')">🪓<span>LEVİATHAN</span></button>
-</div>
+<canvas id="c"></canvas>
+<video id="v" autoplay playsinline muted></video>
+<div id="score"><div class="l">Skor</div><div class="v" id="sc">0</div></div>
+<div id="hint">✋ El aç = top gelir &nbsp;|&nbsp; ✊→✋ = Fırlat</div>
 
 <script>
-// ─── SETUP ───────────────────────────────────────────────────
-const canvas = document.getElementById('gameCanvas');
+const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const vid = document.getElementById('vid');
+const vid = document.getElementById('v');
 const loadDiv = document.getElementById('loading');
-const scoreEl = document.getElementById('scoreVal');
-const stlbl = document.getElementById('statelabel');
+const scEl = document.getElementById('sc');
+
 let W, H;
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
 
 let score = 0;
-let weapon = 'mjolnir';
 let handLms = null;
 
-function selWeapon(w) {
-  weapon = w;
-  document.getElementById('btnM').classList.toggle('on', w === 'mjolnir');
-  document.getElementById('btnL').classList.toggle('on', w === 'leviathan');
-  resetWeapon();
+// ─── EL BOYUTU HESAPLA ──────────────────────────────────────
+// Elin gerçek ekran boyutunu ölçerek top boyutunu ayarla
+function getHandSize(ls) {
+  if (!ls) return 60;
+  const p0 = { x: ls[0].x * W, y: ls[0].y * H };
+  const p9 = { x: ls[9].x * W, y: ls[9].y * H };
+  // Bilek → orta parmak tabanı mesafesi = el boyutu referansı
+  return Math.hypot(p9.x - p0.x, p9.y - p0.y) * 1.1;
 }
 
-// ─── 3D PROJECTION ───────────────────────────────────────────
-const CAM_Z = -480, FOV = 620;
-function proj(x, y, z) {
-  const dz = z - CAM_Z;
-  if (dz < 5) return { x: W / 2, y: H * .5, s: .001, ok: false };
-  const s = FOV / dz;
-  return { x: W / 2 + x * s, y: H * .5 + y * s, s, ok: true };
-}
-function unproj(sx, sy, z) {
-  const dz = z - CAM_Z, s = FOV / dz;
-  return { x: (sx - W / 2) / s, y: (sy - H * .5) / s };
+function getHandCenter(ls) {
+  const p0 = { x: ls[0].x * W, y: ls[0].y * H };
+  const p9 = { x: ls[9].x * W, y: ls[9].y * H };
+  return { x: (p0.x + p9.x) / 2, y: (p0.y + p9.y) / 2 };
 }
 
-// ─── WEAPON STATE ────────────────────────────────────────────
-const WP = {
-  x: 100, y: 100, z: 200,
-  vx: 0, vy: 0, vz: 0,
-  rx: 0.2, ry: 0, rz: 0.15,
-  rvx: 0, rvy: 0, rvz: 0,
-  state: 'rest', // rest | hand | fly | returning | stuck
-  trail: [], rpath: [], rt: 0,
-  hx: 0, hy: 0,
-  bt: 0,
-  fframes: 0, oframes: 0, prevFist: false
-};
-
-function resetWeapon() {
-  WP.x = 100; WP.y = 100; WP.z = 200;
-  WP.vx = 0; WP.vy = 0; WP.vz = 0;
-  WP.rx = 0.2; WP.ry = 0; WP.rz = 0.15;
-  WP.rvx = 0; WP.rvy = 0; WP.rvz = 0;
-  WP.state = 'rest'; WP.trail = []; WP.rpath = []; WP.rt = 0;
-  WP.bt = 0; WP.fframes = 0; WP.oframes = 0; WP.prevFist = false;
-}
-
-// ─── TARGETS ─────────────────────────────────────────────────
-const TARGET_CFG = [
-  { t: 'log',    x: -260, y: 90,  z: 220, r: 36 },
-  { t: 'log',    x: -80,  y: 85,  z: 300, r: 34 },
-  { t: 'shield', x:  55,  y: 72,  z: 255, r: 30 },
-  { t: 'rock',   x:  210, y: 88,  z: 205, r: 32 },
-  { t: 'barrel', x:  325, y: 80,  z: 275, r: 28 },
-  { t: 'log',    x: -170, y: 84,  z: 340, r: 34 },
-];
-let targets = [];
-function mkTarget(i) {
-  return { ...TARGET_CFG[i], broken: false, shards: [], respawn: 0, flash: 0, stuckW: null, stuckA: 0 };
-}
-function initTargets() { targets = TARGET_CFG.map((_, i) => mkTarget(i)); }
-initTargets();
-
-// ─── PARTICLES ───────────────────────────────────────────────
-let parts = [];
-function spawnParts(x, y, z, col, n = 18) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2, b = (Math.random() - .5) * Math.PI, sp = 25 + Math.random() * 65;
-    parts.push({ x, y, z, vx: Math.cos(a) * Math.cos(b) * sp, vy: Math.sin(b) * sp - 22, vz: Math.sin(a) * Math.cos(b) * sp, life: 1, dc: .018 + Math.random() * .022, r: 3 + Math.random() * 6, col });
-  }
-}
-let sflash = 0, sflashCol = 'rgba(255,220,50,';
-
-// ─── HAND HELPERS ────────────────────────────────────────────
-function lm(l) { return { x: l.x * W, y: l.y * H }; }
-function handCenter(ls) { const a = lm(ls[0]), b = lm(ls[9]); return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
 function getOpenness(ls) {
-  const w = lm(ls[0]); let s = 0;
+  const w = { x: ls[0].x * W, y: ls[0].y * H };
+  let s = 0;
   [[8, 5], [12, 9], [16, 13], [20, 17]].forEach(([t, b]) => {
-    const tp = lm(ls[t]), bs = lm(ls[b]);
+    const tp = { x: ls[t].x * W, y: ls[t].y * H };
+    const bs = { x: ls[b].x * W, y: ls[b].y * H };
     s += Math.hypot(tp.x - w.x, tp.y - w.y) / (Math.hypot(bs.x - w.x, bs.y - w.y) + 1);
   });
-  return Math.min(s / 4 / 1.4, 1);
+  return Math.min(s / 4 / 1.4, 1); // 0=yumruk 1=açık
 }
 
-// ─── BEZIER 3D ───────────────────────────────────────────────
+// ─── TOP STATE ──────────────────────────────────────────────
+const ball = {
+  x: W / 2, y: H / 2,
+  vx: 0, vy: 0,
+  r: 50,          // anlık yarıçap (el büyüklüğüne göre)
+  targetR: 50,    // hedef yarıçap (smooth geçiş için)
+  state: 'idle',  // idle | hand | fly | returning
+  trail: [],
+  // Geri dönüş
+  returnPath: [], returnT: 0,
+  // Hedef el konumu
+  handX: 0, handY: 0, handR: 50,
+  // Fırlatma takibi
+  prevFist: false, fframes: 0, oframes: 0,
+  // Önceki el konumu (hız hesabı)
+  prevHX: 0, prevHY: 0,
+};
+
+// ─── HEDEFLER ───────────────────────────────────────────────
+let targets = [];
+function mkTarget() {
+  return {
+    x: 80 + Math.random() * (W - 160),
+    y: H * .1 + Math.random() * H * .35,
+    r: 28 + Math.random() * 20,
+    broken: false,
+    shards: [],
+    respawn: 0,
+    flash: 0,
+  };
+}
+function initTargets() { targets = []; for (let i = 0; i < 6; i++) targets.push(mkTarget()); }
+initTargets();
+
+// ─── PARÇACIKLAR ────────────────────────────────────────────
+let parts = [];
+function spawnParts(x, y, col, n = 16) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 10;
+    parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 3, life: 1, dc: .02 + Math.random() * .025, r: 3 + Math.random() * 6, col });
+  }
+}
+let sflash = 0;
+
+// ─── BEZIER ─────────────────────────────────────────────────
 function bz(p0, p1, p2, p3, t) {
   const m = 1 - t;
   return {
     x: m*m*m*p0.x + 3*m*m*t*p1.x + 3*m*t*t*p2.x + t*t*t*p3.x,
     y: m*m*m*p0.y + 3*m*m*t*p1.y + 3*m*t*t*p2.y + t*t*t*p3.y,
-    z: m*m*m*p0.z + 3*m*m*t*p1.z + 3*m*t*t*p2.z + t*t*t*p3.z
   };
 }
 
-// ─── THROW ───────────────────────────────────────────────────
-function throwWeapon() {
-  if (WP.state !== 'hand') return;
-  WP.vx = (Math.random() - .5) * 55;
-  WP.vy = -12;
-  WP.vz = 200 + Math.random() * 70;
-  WP.state = 'fly';
-  WP.trail = [];
-  WP.rvx = (.08 + Math.random() * .12) * (Math.random() > .5 ? 1 : -1);
-  WP.rvy = .22 + Math.random() * .2;
-  WP.rvz = (.04 + Math.random() * .06) * (Math.random() > .5 ? 1 : -1);
-}
-
-// ─── RECALL ──────────────────────────────────────────────────
-function recallWeapon() {
-  if (WP.state === 'hand' || WP.state === 'returning') return;
-  WP.state = 'returning'; WP.rt = 0;
-  const hw = unproj(WP.hx, WP.hy, -200);
-  const p0 = { x: WP.x, y: WP.y, z: WP.z }, p3 = { x: hw.x, y: hw.y, z: -200 };
-  const sd = Math.random() > .5 ? 1 : -1, mz = (p0.z + p3.z) / 2;
-  const p1 = { x: p0.x + sd * 230, y: Math.min(p0.y, p3.y) - 170, z: mz + 70 };
-  const p2 = { x: p3.x - sd * 160, y: Math.min(p0.y, p3.y) - 110, z: mz - 40 };
-  WP.rpath = [];
-  for (let i = 0; i <= 80; i++) WP.rpath.push(bz(p0, p1, p2, p3, i / 80));
-  WP.trail = [];
-  WP.rvy = .28 + Math.random() * .18;
-  WP.rvx = .08 + Math.random() * .1;
-}
-
-// ─── HIT TARGET ──────────────────────────────────────────────
-function hitTarget(o) {
-  if (o.broken || o.stuckW) return;
-  if (o.t === 'log' && weapon === 'leviathan') {
-    o.stuckW = weapon; o.stuckA = WP.rz; o.flash = 1;
-    spawnParts(o.x, o.y, o.z, 'rgba(100,220,255,', 12);
-    WP.state = 'stuck'; WP.x = o.x; WP.y = o.y - o.r * .5; WP.z = o.z;
-    sflash = 8; sflashCol = 'rgba(80,200,255,';
-    score += 15; scoreEl.textContent = score;
-    setTimeout(() => { o.stuckW = null; recallWeapon(); }, 2000);
-  } else {
-    o.broken = true;
-    for (let i = 0; i < 18; i++) {
-      const a = Math.random() * Math.PI * 2, b = (Math.random() - .5) * Math.PI, sp = 22 + Math.random() * 50;
-      o.shards.push({ x: o.x, y: o.y, z: o.z, vx: Math.cos(a) * Math.cos(b) * sp, vy: Math.sin(b) * sp - 32, vz: Math.sin(a) * Math.cos(b) * sp, rot: Math.random() * Math.PI * 2, vr: (Math.random() - .5) * .3, r: 5 + Math.random() * 10, life: 1 });
-    }
-    const col = weapon === 'mjolnir' ? 'rgba(255,220,50,' : 'rgba(80,200,255,';
-    spawnParts(o.x, o.y, o.z, col, 22);
-    sflash = 12; sflashCol = weapon === 'mjolnir' ? 'rgba(255,220,50,' : 'rgba(80,200,255,';
-    score += 10; scoreEl.textContent = score;
-    o.respawn = 210;
-    setTimeout(() => recallWeapon(), 280);
-    WP.state = 'returning';
+// ─── FIRLAT ─────────────────────────────────────────────────
+function throwBall() {
+  if (ball.state !== 'hand') return;
+  // Hızı el hareketinden al
+  ball.vx = (ball.handX - ball.prevHX) * 1.8;
+  ball.vy = (ball.handY - ball.prevHY) * 1.8;
+  // Çok yavaşsa yukarı fırlat
+  if (Math.hypot(ball.vx, ball.vy) < 8) {
+    ball.vx = (Math.random() - .5) * 14;
+    ball.vy = -22;
   }
+  ball.state = 'fly';
+  ball.trail = [];
 }
 
-// ─── DRAW MJOLNIR ────────────────────────────────────────────
-function drawMjolnir() {
-  const t = Date.now() / 160;
-  for (let i = 0; i < 5; i++) {
-    const a = t + i * Math.PI * 2 / 5;
-    ctx.beginPath(); ctx.arc(Math.cos(a) * 23, Math.sin(a) * 15, 2 + Math.sin(t * 5 + i) * 1.4, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(100,180,255,${.5 + Math.sin(t * 3 + i) * .28})`; ctx.fill();
-    if (i % 2 === 0) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 13, Math.sin(a) * 9); ctx.strokeStyle = 'rgba(160,210,255,.22)'; ctx.lineWidth = 1; ctx.stroke(); }
+// ─── GERİ ÇAĞIR ─────────────────────────────────────────────
+function recallBall() {
+  if (ball.state === 'hand' || ball.state === 'returning') return;
+  ball.state = 'returning'; ball.returnT = 0;
+  const p0 = { x: ball.x, y: ball.y };
+  const p3 = { x: ball.handX, y: ball.handY };
+  // Bezier kavis
+  const side = Math.random() > .5 ? 1 : -1;
+  const p1 = { x: p0.x + side * W * .25, y: Math.min(p0.y, p3.y) - H * .2 };
+  const p2 = { x: p3.x - side * W * .15, y: Math.min(p0.y, p3.y) - H * .1 };
+  ball.returnPath = [];
+  for (let i = 0; i <= 60; i++) ball.returnPath.push(bz(p0, p1, p2, p3, i / 60));
+  ball.trail = [];
+}
+
+// ─── TOP VURDU ──────────────────────────────────────────────
+function hitTarget(t) {
+  if (t.broken) return;
+  t.broken = true; t.shards = [];
+  for (let i = 0; i < 16; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 8;
+    t.shards.push({ x: t.x, y: t.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 4, rot: Math.random() * Math.PI * 2, vr: (Math.random() - .5) * .25, r: 4 + Math.random() * 10, life: 1 });
   }
-  ctx.beginPath(); ctx.roundRect(-5, 12, 10, 37, [3]);
-  const sg = ctx.createLinearGradient(-5, 12, 5, 12);
-  sg.addColorStop(0, '#3a2010'); sg.addColorStop(.5, '#8a6035'); sg.addColorStop(1, '#3a2010');
-  ctx.fillStyle = sg; ctx.fill(); ctx.strokeStyle = '#1a0a04'; ctx.lineWidth = 1; ctx.stroke();
-  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.rect(-6, 15 + i * 8, 12, 5); ctx.fillStyle = 'rgba(160,110,50,.85)'; ctx.fill(); }
-  const hg = ctx.createLinearGradient(-24, -21, 24, 21);
-  hg.addColorStop(0, '#484848'); hg.addColorStop(.25, '#d5d5d5'); hg.addColorStop(.55, '#888'); hg.addColorStop(1, '#2e2e2e');
-  ctx.beginPath(); ctx.roundRect(-24, -21, 48, 30, [5]); ctx.fillStyle = hg; ctx.fill(); ctx.strokeStyle = '#181818'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = 'rgba(80,170,255,.9)'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ᚦ', 0, -5);
-  const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 36);
-  gl.addColorStop(0, 'rgba(80,160,255,.28)'); gl.addColorStop(1, 'rgba(80,160,255,0)');
-  ctx.beginPath(); ctx.arc(0, 0, 36, 0, Math.PI * 2); ctx.fillStyle = gl; ctx.fill();
+  spawnParts(t.x, t.y, 'rgba(180,200,255,', 20);
+  sflash = 10;
+  score += 10; scEl.textContent = score;
+  t.respawn = 180;
+  // Top geri dönsün
+  setTimeout(() => recallBall(), 200);
+  ball.state = 'idle';
 }
 
-// ─── DRAW LEVIATHAN ──────────────────────────────────────────
-function drawLeviathan() {
-  const t = Date.now() / 250;
-  for (let i = 0; i < 7; i++) {
-    const a = t * .5 + i * Math.PI * 2 / 7;
-    ctx.beginPath(); ctx.moveTo(Math.cos(a) * 23, Math.sin(a) * 23); ctx.lineTo(Math.cos(a) * 32, Math.sin(a) * 32);
-    ctx.strokeStyle = `rgba(120,230,255,${.22 + Math.sin(t * 2 + i) * .14})`; ctx.lineWidth = 1.5; ctx.stroke();
+// ─── METAL TOP ÇİZ ──────────────────────────────────────────
+function drawBall(x, y, r, alpha = 1) {
+  if (r < 2) return;
+  ctx.save(); ctx.globalAlpha = alpha;
+
+  // Gölge
+  ctx.beginPath(); ctx.ellipse(x, y + r * .85, r * .65, r * .18, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.filter = 'blur(6px)'; ctx.fill(); ctx.filter = 'none';
+
+  // Metal gradient
+  const grad = ctx.createRadialGradient(x - r * .3, y - r * .3, r * .05, x, y, r);
+  grad.addColorStop(0, '#e8eef5');
+  grad.addColorStop(.25, '#b0bcc8');
+  grad.addColorStop(.6, '#6a7a88');
+  grad.addColorStop(.85, '#3a4a56');
+  grad.addColorStop(1, '#1a2530');
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Kenar çizgisi
+  const edgeGrad = ctx.createRadialGradient(x, y, r * .8, x, y, r);
+  edgeGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  edgeGrad.addColorStop(1, 'rgba(0,0,0,.4)');
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = edgeGrad; ctx.fill();
+
+  // Metal çizgi detayları
+  ctx.strokeStyle = 'rgba(100,120,140,.5)';
+  ctx.lineWidth = r * .04;
+  ctx.beginPath(); ctx.arc(x, y, r * .75, Math.PI * .1, Math.PI * .9); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, r * .5, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+
+  // Vida/perçin detayları
+  const boltPositions = [[-.45, -.45], [.45, -.45], [-.45, .45], [.45, .45]];
+  for (const [bx, by] of boltPositions) {
+    const boltX = x + bx * r * .6, boltY = y + by * r * .6;
+    const boltR = r * .06;
+    const bg2 = ctx.createRadialGradient(boltX - boltR * .3, boltY - boltR * .3, 0, boltX, boltY, boltR);
+    bg2.addColorStop(0, '#d0d8e0'); bg2.addColorStop(1, '#404858');
+    ctx.beginPath(); ctx.arc(boltX, boltY, boltR, 0, Math.PI * 2);
+    ctx.fillStyle = bg2; ctx.fill();
   }
-  ctx.beginPath(); ctx.roundRect(-5, 10, 10, 44, [3]);
-  const sg = ctx.createLinearGradient(-5, 10, 5, 10);
-  sg.addColorStop(0, '#152535'); sg.addColorStop(.5, '#254565'); sg.addColorStop(1, '#152535');
-  ctx.fillStyle = sg; ctx.fill(); ctx.strokeStyle = '#091520'; ctx.lineWidth = 1; ctx.stroke();
-  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.rect(-6, 14 + i * 12, 12, 7); ctx.fillStyle = 'rgba(80,160,200,.7)'; ctx.fill(); }
-  ctx.beginPath();
-  ctx.moveTo(-6, -10); ctx.bezierCurveTo(-6, -32, 20, -42, 36, -26);
-  ctx.bezierCurveTo(45, -14, 45, 16, 36, 26); ctx.bezierCurveTo(20, 40, -6, 30, -6, 10);
-  ctx.lineTo(-20, 0); ctx.closePath();
-  const ag = ctx.createLinearGradient(-20, -42, 45, 40);
-  ag.addColorStop(0, '#0e2840'); ag.addColorStop(.3, '#1e6090'); ag.addColorStop(.55, '#40b0e0'); ag.addColorStop(1, '#0e2030');
-  ctx.fillStyle = ag; ctx.fill(); ctx.strokeStyle = '#081828'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.strokeStyle = 'rgba(180,240,255,.32)'; ctx.lineWidth = 1;
-  [[0, 0, 22, -16], [0, 0, 24, 12], [12, -8, 12, 14]].forEach(([x1, y1, x2, y2]) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); });
-  ctx.beginPath(); ctx.bezierCurveTo(45, -14, 45, 16, 36, 26); ctx.strokeStyle = 'rgba(200,245,255,.82)'; ctx.lineWidth = 2.5; ctx.stroke();
-  const ig = ctx.createRadialGradient(14, -4, 0, 14, -4, 42);
-  ig.addColorStop(0, 'rgba(80,200,255,.18)'); ig.addColorStop(1, 'rgba(80,200,255,0)');
-  ctx.beginPath(); ctx.arc(14, -4, 42, 0, Math.PI * 2); ctx.fillStyle = ig; ctx.fill();
-}
 
-// ─── DRAW WEAPON 3D ──────────────────────────────────────────
-function drawWeapon3D(x, y, z, rx, ry, rz, al = 1) {
-  const p = proj(x, y, z); if (!p.ok) return;
-  ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y);
-  ctx.rotate(rz); ctx.scale(Math.cos(ry) * p.s * 28, Math.cos(rx) * p.s * 28);
-  weapon === 'mjolnir' ? drawMjolnir() : drawLeviathan();
+  // Parlama (yansıma)
+  const shine = ctx.createRadialGradient(x - r * .32, y - r * .32, 0, x - r * .32, y - r * .32, r * .38);
+  shine.addColorStop(0, 'rgba(255,255,255,.55)');
+  shine.addColorStop(.5, 'rgba(255,255,255,.15)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.arc(x - r * .32, y - r * .32, r * .38, 0, Math.PI * 2);
+  ctx.fillStyle = shine; ctx.fill();
+
+  // İkinci küçük parlama
+  ctx.beginPath(); ctx.ellipse(x + r * .2, y + r * .25, r * .08, r * .05, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
+
   ctx.restore();
 }
 
-// ─── DRAW TRAIL ──────────────────────────────────────────────
+// ─── TRAIL ──────────────────────────────────────────────────
 function drawTrail() {
-  if (WP.trail.length < 2) return;
-  const isMj = weapon === 'mjolnir';
-  for (let i = 1; i < WP.trail.length; i++) {
-    const pg = i / WP.trail.length;
-    const p0 = proj(WP.trail[i-1].x, WP.trail[i-1].y, WP.trail[i-1].z);
-    const p1 = proj(WP.trail[i].x, WP.trail[i].y, WP.trail[i].z);
-    if (!p0.ok || !p1.ok) continue;
-    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-    ctx.strokeStyle = isMj ? `rgba(255,210,60,${pg * .8})` : `rgba(60,200,255,${pg * .8})`;
-    ctx.lineWidth = Math.max(pg * p1.s * 180, 1); ctx.lineCap = 'round'; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-    ctx.strokeStyle = isMj ? `rgba(255,255,180,${pg * .35})` : `rgba(200,240,255,${pg * .35})`;
-    ctx.lineWidth = Math.max(pg * p1.s * 45, .5); ctx.stroke();
+  if (ball.trail.length < 2) return;
+  for (let i = 1; i < ball.trail.length; i++) {
+    const pg = i / ball.trail.length;
+    const t0 = ball.trail[i-1], t1 = ball.trail[i];
+    ctx.beginPath(); ctx.moveTo(t0.x, t0.y); ctx.lineTo(t1.x, t1.y);
+    ctx.strokeStyle = `rgba(150,180,220,${pg * .5})`;
+    ctx.lineWidth = pg * ball.r * .4; ctx.lineCap = 'round'; ctx.stroke();
   }
 }
 
-// ─── DRAW RETURN PATH ────────────────────────────────────────
+// ─── DÖNÜŞ YOLU ─────────────────────────────────────────────
 function drawReturnPath() {
-  if (WP.state !== 'returning' || WP.rpath.length < 2) return;
-  const isMj = weapon === 'mjolnir';
-  ctx.save(); ctx.setLineDash([5, 9]); ctx.lineDashOffset = -Date.now() / 28;
-  for (let i = 1; i < WP.rpath.length; i++) {
-    const pg = i / WP.rpath.length;
-    if (pg < WP.rt - .02) continue;
-    const r0 = proj(WP.rpath[i-1].x, WP.rpath[i-1].y, WP.rpath[i-1].z);
-    const r1 = proj(WP.rpath[i].x, WP.rpath[i].y, WP.rpath[i].z);
-    if (!r0.ok || !r1.ok) continue;
+  if (ball.state !== 'returning' || ball.returnPath.length < 2) return;
+  ctx.save(); ctx.setLineDash([5, 10]); ctx.lineDashOffset = -Date.now() / 30;
+  for (let i = 1; i < ball.returnPath.length; i++) {
+    const pg = i / ball.returnPath.length;
+    if (pg < ball.returnT - .02) continue;
+    const r0 = ball.returnPath[i-1], r1 = ball.returnPath[i];
     ctx.beginPath(); ctx.moveTo(r0.x, r0.y); ctx.lineTo(r1.x, r1.y);
-    ctx.strokeStyle = isMj ? `rgba(200,230,255,${pg * .42})` : `rgba(80,200,255,${pg * .42})`;
-    ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.strokeStyle = `rgba(180,200,240,${pg * .4})`;
+    ctx.lineWidth = 2; ctx.stroke();
   }
   ctx.setLineDash([]); ctx.restore();
 }
 
-// ─── DRAW TARGETS ────────────────────────────────────────────
-function drawLog(p, o) {
-  const s = p.s * 72; ctx.save(); ctx.translate(p.x, p.y);
-  if (o.flash > 0) { ctx.shadowColor = 'rgba(255,150,50,.9)'; ctx.shadowBlur = 20 * o.flash; }
-  ctx.beginPath(); ctx.ellipse(0, 0, s * .48, s * 1.02, 0, 0, Math.PI * 2);
-  const lg = ctx.createRadialGradient(-s * .12, -s * .12, 0, 0, 0, s * 1.05);
-  lg.addColorStop(0, '#6a3015'); lg.addColorStop(.5, '#4a2010'); lg.addColorStop(1, '#1e0c04');
-  ctx.fillStyle = lg; ctx.fill(); ctx.strokeStyle = '#150804'; ctx.lineWidth = 1.5 * p.s; ctx.stroke();
-  for (let r = .18; r < .9; r += .22) { ctx.beginPath(); ctx.ellipse(0, 0, s * .48 * r, s * .3 * r, 0, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(110,55,20,.38)'; ctx.lineWidth = p.s; ctx.stroke(); }
-  ctx.beginPath(); ctx.moveTo(-s * .07, -s * .52); ctx.quadraticCurveTo(s * .1, 0, s * .04, s * .55); ctx.strokeStyle = 'rgba(15,5,2,.65)'; ctx.lineWidth = 2 * p.s; ctx.stroke();
-  if (o.stuckW) {
-    ctx.save(); ctx.translate(0, -s * .42); ctx.rotate(o.stuckA + Math.PI * .5); ctx.scale(p.s * 22, p.s * 22); drawLeviathan(); ctx.restore();
-    const ig = ctx.createRadialGradient(0, -s * .42, 0, 0, -s * .42, s * .45);
-    ig.addColorStop(0, 'rgba(80,200,255,.18)'); ig.addColorStop(1, 'rgba(80,200,255,0)');
-    ctx.beginPath(); ctx.arc(0, -s * .42, s * .45, 0, Math.PI * 2); ctx.fillStyle = ig; ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawShield(p, o) {
-  const s = p.s * 72; ctx.save(); ctx.translate(p.x, p.y);
-  if (o.flash > 0) { ctx.shadowColor = 'rgba(255,220,50,.9)'; ctx.shadowBlur = 18 * o.flash; }
-  ctx.beginPath(); ctx.moveTo(0, -s * .82); ctx.lineTo(s * .7, -s * .4); ctx.lineTo(s * .7, s * .2); ctx.lineTo(0, s * .78); ctx.lineTo(-s * .7, s * .2); ctx.lineTo(-s * .7, -s * .4); ctx.closePath();
-  const sg = ctx.createRadialGradient(-s * .15, -s * .15, 0, 0, 0, s * .82);
-  sg.addColorStop(0, '#7090b8'); sg.addColorStop(1, '#1a3858');
-  ctx.fillStyle = sg; ctx.fill(); ctx.strokeStyle = '#90b8d8'; ctx.lineWidth = 2 * p.s; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -s * .58); ctx.lineTo(0, s * .58); ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 2 * p.s; ctx.stroke();
-  ctx.restore();
-}
-
-function drawRock(p, o) {
-  const s = p.s * 72; ctx.save(); ctx.translate(p.x, p.y);
-  if (o.flash > 0) { ctx.shadowColor = 'rgba(255,220,50,.9)'; ctx.shadowBlur = 18 * o.flash; }
-  ctx.beginPath();
-  const pts = []; for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, r = s * (.62 + Math.sin(i * 2.3 + 1) * .28); pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
-  ctx.moveTo(pts[0][0], pts[0][1]); for (const pt of pts) ctx.lineTo(pt[0], pt[1]); ctx.closePath();
-  const rg = ctx.createRadialGradient(-s * .2, -s * .2, 0, 0, 0, s);
-  rg.addColorStop(0, '#8a8a8a'); rg.addColorStop(.6, '#4c4c4c'); rg.addColorStop(1, '#222');
-  ctx.fillStyle = rg; ctx.fill(); ctx.strokeStyle = '#161616'; ctx.lineWidth = 2 * p.s; ctx.stroke();
-  ctx.restore();
-}
-
-function drawBarrel(p, o) {
-  const s = p.s * 72; ctx.save(); ctx.translate(p.x, p.y);
-  if (o.flash > 0) { ctx.shadowColor = 'rgba(255,220,50,.9)'; ctx.shadowBlur = 18 * o.flash; }
-  const bg = ctx.createLinearGradient(-s * .48, -s * .72, s * .48, s * .72);
-  bg.addColorStop(0, '#5a3010'); bg.addColorStop(.4, '#c07030'); bg.addColorStop(.7, '#8a5020'); bg.addColorStop(1, '#3a1a08');
-  ctx.beginPath(); ctx.roundRect(-s * .48, -s * .72, s * .96, s * 1.44, [s * .26]); ctx.fillStyle = bg; ctx.fill(); ctx.strokeStyle = '#2a1005'; ctx.lineWidth = 2 * p.s; ctx.stroke();
-  for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.rect(-s * .52, i * s * .46 - s * .05, s * 1.04, s * .1); ctx.fillStyle = 'rgba(50,25,6,.9)'; ctx.fill(); }
-  ctx.restore();
-}
-
-function drawTarget(o) {
-  if (o.broken) {
-    for (const sh of o.shards) {
-      const p = proj(sh.x, sh.y, sh.z); if (!p.ok) continue;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(sh.rot); ctx.globalAlpha = sh.life;
-      ctx.beginPath(); ctx.arc(0, 0, sh.r * p.s * 45, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(135,108,75,.85)'; ctx.fill(); ctx.restore();
+// ─── HEDEF ÇİZ ──────────────────────────────────────────────
+function drawTarget(t) {
+  if (t.broken) {
+    for (const s of t.shards) {
+      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rot); ctx.globalAlpha = s.life;
+      ctx.beginPath(); ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(160,170,200,.85)'; ctx.fill(); ctx.restore();
     }
     return;
   }
-  const p = proj(o.x, o.y, o.z); if (!p.ok) return;
-  if (o.t === 'log') drawLog(p, o);
-  else if (o.t === 'shield') drawShield(p, o);
-  else if (o.t === 'rock') drawRock(p, o);
-  else drawBarrel(p, o);
+  const { x, y, r, flash } = t;
+  ctx.save();
+  if (flash > 0) { ctx.shadowColor = 'rgba(180,220,255,.9)'; ctx.shadowBlur = 20 * flash; }
+
+  // Demir levha görünümü
+  const mg = ctx.createRadialGradient(x - r * .2, y - r * .2, 0, x, y, r);
+  mg.addColorStop(0, '#8a9aaa'); mg.addColorStop(.5, '#5a6a78'); mg.addColorStop(1, '#2a3840');
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = mg; ctx.fill(); ctx.strokeStyle = '#1a2830'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Hedef çemberleri
+  for (let i = 1; i <= 3; i++) {
+    ctx.beginPath(); ctx.arc(x, y, r * i / 3.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${.15 - i * .03})`; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Çarpı işareti
+  ctx.strokeStyle = 'rgba(255,100,80,.6)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x - r * .3, y - r * .3); ctx.lineTo(x + r * .3, y + r * .3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + r * .3, y - r * .3); ctx.lineTo(x - r * .3, y + r * .3); ctx.stroke();
+
+  // Parlama
+  ctx.beginPath(); ctx.ellipse(x - r * .25, y - r * .28, r * .2, r * .1, -0.4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
+  ctx.restore();
 }
 
-// ─── DRAW HAND ───────────────────────────────────────────────
+// ─── EL ÇİZ ─────────────────────────────────────────────────
 function drawHand(ls) {
   if (!ls) return;
   const fingers = [[0,1,2,3,4],[0,5,6,7,8],[0,9,10,11,12],[0,13,14,15,16],[0,17,18,19,20]];
-  const palmPts = [0,1,5,9,13,17].map(i => lm(ls[i]));
+  const lmPt = i => ({ x: ls[i].x * W, y: ls[i].y * H });
+  const palmPts = [0,1,5,9,13,17].map(lmPt);
   ctx.beginPath(); ctx.moveTo(palmPts[0].x, palmPts[0].y);
-  for (const pt of palmPts) ctx.lineTo(pt.x, pt.y); ctx.closePath();
-  ctx.fillStyle = 'rgba(255,200,150,.18)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,200,150,.35)'; ctx.lineWidth = 2; ctx.stroke();
+  for (const p of palmPts) ctx.lineTo(p.x, p.y); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,200,150,.18)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,200,150,.35)'; ctx.lineWidth = 2; ctx.stroke();
   for (const f of fingers) {
-    ctx.beginPath(); for (let i = 0; i < f.length; i++) { const pt = lm(ls[f[i]]); i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y); }
+    ctx.beginPath();
+    for (let i = 0; i < f.length; i++) { const p = lmPt(f[i]); i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); }
     ctx.strokeStyle = 'rgba(255,200,150,.6)'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.stroke();
   }
   for (let i = 0; i < ls.length; i++) {
-    const pt = lm(ls[i]); ctx.beginPath(); ctx.arc(pt.x, pt.y, i === 0 ? 6 : 3, 0, Math.PI * 2);
+    const p = lmPt(i); ctx.beginPath(); ctx.arc(p.x, p.y, i === 0 ? 6 : 3, 0, Math.PI * 2);
     ctx.fillStyle = i === 0 ? 'rgba(255,140,70,.9)' : 'rgba(255,215,170,.8)'; ctx.fill();
   }
 }
 
-// ─── DRAW SCENE ──────────────────────────────────────────────
+// ─── SAHNE ──────────────────────────────────────────────────
 function drawScene() {
   ctx.clearRect(0, 0, W, H);
-  const sky = ctx.createLinearGradient(0, 0, 0, H * .62);
-  sky.addColorStop(0, '#070615'); sky.addColorStop(.5, '#0e0e28'); sky.addColorStop(1, '#141522');
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H * .62);
-  const gr = ctx.createLinearGradient(0, H * .6, 0, H);
-  gr.addColorStop(0, '#191208'); gr.addColorStop(.4, '#24180a'); gr.addColorStop(1, '#0d0803');
-  ctx.fillStyle = gr; ctx.fillRect(0, H * .6, W, H * .4);
-  const hz = H * .62;
-  ctx.strokeStyle = 'rgba(75,55,22,.32)'; ctx.lineWidth = 1;
-  for (let i = 0; i < 7; i++) { const t = (i+1)/8, y = hz + t*(H-hz), xw = W*.5*t; ctx.beginPath(); ctx.moveTo(W*.5-xw, y); ctx.lineTo(W*.5+xw, y); ctx.stroke(); }
-  ctx.strokeStyle = 'rgba(75,55,22,.18)';
-  for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.moveTo(W*.5, hz); ctx.lineTo(W*.5 + i*W*.16, H); ctx.stroke(); }
-  for (let i = 0; i < 50; i++) {
-    const sx = (Math.sin(i*137.5)*.5+.5)*W, sy = (Math.cos(i*97.3)*.5+.5)*H*.54;
-    const br = .28 + Math.sin(Date.now()/900+i)*.18;
-    ctx.beginPath(); ctx.arc(sx, sy, .55 + Math.sin(Date.now()/1100+i)*.38, 0, Math.PI*2);
+  // Koyu arka plan
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#080614'); bg.addColorStop(.5, '#0c0e20'); bg.addColorStop(1, '#0a0c18');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Zemin
+  const gr = ctx.createLinearGradient(0, H * .78, 0, H);
+  gr.addColorStop(0, '#151208'); gr.addColorStop(1, '#080604');
+  ctx.fillStyle = gr; ctx.fillRect(0, H * .78, W, H * .22);
+  ctx.beginPath(); ctx.moveTo(0, H * .78); ctx.lineTo(W, H * .78);
+  ctx.strokeStyle = 'rgba(80,60,30,.4)'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Yıldızlar
+  for (let i = 0; i < 60; i++) {
+    const sx = (Math.sin(i * 137.5) * .5 + .5) * W;
+    const sy = (Math.cos(i * 97.3) * .5 + .5) * H * .72;
+    const br = .2 + Math.sin(Date.now() / 900 + i) * .15;
+    ctx.beginPath(); ctx.arc(sx, sy, .4 + Math.sin(Date.now() / 1100 + i) * .3, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255,255,255,${br})`; ctx.fill();
   }
+
+  // Flash
+  if (sflash > 0) {
+    ctx.fillStyle = `rgba(180,210,255,${sflash / 80})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
-// ─── UPDATE ──────────────────────────────────────────────────
+// ─── GÜNCELLE ───────────────────────────────────────────────
 function update() {
   if (handLms) {
-    const c = handCenter(handLms);
-    WP.hx = c.x; WP.hy = c.y;
+    const center = getHandCenter(handLms);
+    const handSize = getHandSize(handLms);
     const op = getOpenness(handLms);
-    const isOpen = op > .72, isFist = op < .32;
+    const isOpen = op > .7, isFist = op < .3;
 
-    if (isFist) WP.fframes = Math.min(WP.fframes + 1, 30);
-    else WP.fframes = Math.max(WP.fframes - 2, 0);
-    if (isOpen) WP.oframes = Math.min(WP.oframes + 1, 30);
-    else WP.oframes = Math.max(WP.oframes - 2, 0);
+    ball.prevHX = ball.handX; ball.prevHY = ball.handY;
+    ball.handX = center.x; ball.handY = center.y;
+    ball.handR = handSize;
 
-    // Yumruk → aç = fırlat
-    if (WP.state === 'hand') {
-      if (isFist) WP.prevFist = true;
-      if (WP.prevFist && isOpen) { throwWeapon(); WP.prevFist = false; }
+    // Frame sayaçları
+    if (isFist) ball.fframes = Math.min(ball.fframes + 1, 40);
+    else ball.fframes = Math.max(ball.fframes - 2, 0);
+    if (isOpen) ball.oframes = Math.min(ball.oframes + 1, 40);
+    else ball.oframes = Math.max(ball.oframes - 2, 0);
+
+    // El açık → top ele gel
+    if (isOpen && (ball.state === 'fly' || ball.state === 'idle')) {
+      if (ball.oframes > 12) recallBall();
     }
 
-    // El açık = geri çağır
-    if (WP.oframes > 14 && (WP.state === 'fly' || WP.state === 'stuck' || WP.state === 'rest')) {
-      recallWeapon(); WP.oframes = 0;
+    // Elde → top ele yapış
+    if (ball.state === 'hand') {
+      ball.x += (center.x - ball.x) * .3;
+      ball.y += (center.y - ball.y) * .3;
+      ball.targetR = handSize; // El boyutuyla eşleş
+      // Yumruk → aç = fırlat
+      if (isFist) ball.prevFist = true;
+      if (ball.prevFist && isOpen && ball.fframes > 5) {
+        throwBall();
+        ball.prevFist = false;
+      }
+    }
+
+    // Geri dönüş bitince elde
+    if (ball.state === 'returning') {
+      ball.targetR = handSize; // Dönüş sırasında boyut yaklaş
     }
   } else {
-    WP.prevFist = false;
+    ball.prevFist = false;
+    ball.oframes = 0; ball.fframes = 0;
   }
 
-  // Rest: sallan
-  if (WP.state === 'rest') { WP.bt += .038; WP.y = 100 + Math.sin(WP.bt) * 7; WP.ry += .018; }
+  // Boyutu smooth değiştir
+  ball.r += (ball.targetR - ball.r) * .12;
 
-  // Hand: ele yapış
-  if (WP.state === 'hand') {
-    const hw = unproj(WP.hx, WP.hy, -200);
-    WP.x += (hw.x - WP.x) * .28; WP.y += (hw.y - WP.y) * .28; WP.z += (-200 - WP.z) * .28;
-    WP.ry += .05; WP.rx += .01; WP.trail = [];
-  }
+  // Uçuş
+  if (ball.state === 'fly') {
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > 20) ball.trail.shift();
+    ball.vy += .55; // yerçekimi
+    ball.x += ball.vx; ball.y += ball.vy;
+    ball.vx *= .99;
 
-  // Fly
-  if (WP.state === 'fly') {
-    WP.trail.push({ x: WP.x, y: WP.y, z: WP.z });
-    if (WP.trail.length > 22) WP.trail.shift();
-    WP.vy += 1.6;
-    WP.x += WP.vx / 60 * 60; WP.y += WP.vy / 60 * 60; WP.z += WP.vz / 60 * 60;
-    WP.vx *= .992; WP.vz *= .994;
-    WP.rx += WP.rvx; WP.ry += WP.rvy; WP.rz += WP.rvz;
-    const p = proj(WP.x, WP.y, WP.z);
-    if (WP.z > 960 || WP.z < -500 || WP.y > 380 || (p.ok && p.y > H + 120)) { WP.state = 'rest'; WP.trail = []; }
-    for (const o of targets) {
-      if (o.broken || o.stuckW) continue;
-      const dx = WP.x - o.x, dy = WP.y - o.y, dz = WP.z - o.z;
-      if (Math.sqrt(dx*dx + dy*dy + dz*dz) < o.r * 3.2) { hitTarget(o); break; }
+    // Duvara çarp
+    if (ball.x < ball.r) { ball.x = ball.r; ball.vx *= -.6; }
+    if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx *= -.6; }
+
+    // Yere düştü
+    if (ball.y > H + ball.r * 2) {
+      ball.state = 'idle';
+      ball.x = W / 2; ball.y = H * .5;
+      ball.trail = [];
+    }
+
+    // Hedefe çarp
+    for (const t of targets) {
+      if (t.broken) continue;
+      if (Math.hypot(ball.x - t.x, ball.y - t.y) < ball.r + t.r) {
+        hitTarget(t);
+        break;
+      }
     }
   }
 
-  // Returning
-  if (WP.state === 'returning') {
-    WP.rt = Math.min(1, WP.rt + .014);
-    if (WP.rpath.length > 0) {
-      const hw = unproj(WP.hx, WP.hy, -200), last = WP.rpath[WP.rpath.length - 1];
-      last.x += (hw.x - last.x) * .1; last.y += (hw.y - last.y) * .1; last.z += (-200 - last.z) * .1;
+  // Geri dönüş
+  if (ball.state === 'returning') {
+    ball.returnT = Math.min(1, ball.returnT + .018);
+    // Son noktayı güncel el konumuna çek
+    if (ball.returnPath.length > 0) {
+      const last = ball.returnPath[ball.returnPath.length - 1];
+      last.x += (ball.handX - last.x) * .15;
+      last.y += (ball.handY - last.y) * .15;
     }
-    const idx = Math.floor(WP.rt * (WP.rpath.length - 1));
-    const pt = WP.rpath[Math.min(idx, WP.rpath.length - 1)];
-    WP.x = pt.x; WP.y = pt.y; WP.z = pt.z;
-    WP.rx += WP.rvx; WP.ry += WP.rvy; WP.rz += WP.rvz;
-    WP.rvy = Math.min(WP.rvy + .005, .42);
-    WP.trail.push({ x: WP.x, y: WP.y, z: WP.z });
-    if (WP.trail.length > 18) WP.trail.shift();
-    if (WP.rt >= 1) { WP.state = 'hand'; WP.trail = []; WP.rvx = 0; WP.rvy = 0; WP.rvz = 0; }
+    const idx = Math.floor(ball.returnT * (ball.returnPath.length - 1));
+    const pt = ball.returnPath[Math.min(idx, ball.returnPath.length - 1)];
+    ball.x = pt.x; ball.y = pt.y;
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > 16) ball.trail.shift();
+    if (ball.returnT >= 1) {
+      ball.state = 'hand';
+      ball.trail = [];
+    }
   }
 
-  // Particles
+  // Idle: ortada yüzer
+  if (ball.state === 'idle') {
+    ball.x += (W / 2 - ball.x) * .02;
+    ball.y += (H * .45 - ball.y) * .02;
+    ball.targetR = 50;
+  }
+
+  // Parçacıklar
   for (let i = parts.length - 1; i >= 0; i--) {
-    const p = parts[i]; p.x += p.vx * .016 * 52; p.y += p.vy * .016 * 52; p.z += p.vz * .016 * 52;
-    p.vy += 1.4; p.life -= p.dc; if (p.life <= 0) parts.splice(i, 1);
+    const p = parts[i]; p.x += p.vx; p.y += p.vy; p.vy += .2; p.life -= p.dc;
+    if (p.life <= 0) parts.splice(i, 1);
   }
 
-  // Targets
-  for (const o of targets) {
-    if (o.broken) {
-      for (const sh of o.shards) { sh.x += sh.vx * .016 * 52; sh.y += sh.vy * .016 * 52; sh.z += sh.vz * .016 * 52; sh.vy += 1.4; sh.rot += sh.vr; sh.life -= .012; }
-      o.respawn--;
-      if (o.respawn <= 0) { const i = targets.indexOf(o); targets[i] = mkTarget(i); }
-    } else { if (o.flash > 0) o.flash -= .04; }
+  // Hedefler
+  for (const t of targets) {
+    if (t.broken) {
+      for (const s of t.shards) { s.x += s.vx; s.y += s.vy; s.vy += .25; s.rot += s.vr; s.life -= .013; }
+      t.respawn--;
+      if (t.respawn <= 0) { const i = targets.indexOf(t); targets[i] = mkTarget(); }
+    } else { if (t.flash > 0) t.flash -= .04; }
   }
   if (sflash > 0) sflash--;
-
-  const labels = { rest: 'Sahne — ✋ El aç = çağır', hand: 'Elde — ✊→✋ Fırlat!', fly: 'Uçuyor!', returning: 'Geri geliyor!', stuck: 'Saplandı!' };
-  stlbl.textContent = labels[WP.state] || WP.state;
 }
 
-// ─── DRAW ────────────────────────────────────────────────────
+// ─── ÇİZ ────────────────────────────────────────────────────
 function draw() {
   drawScene();
-  if (sflash > 0) { ctx.fillStyle = sflashCol + (sflash / 100) + ')'; ctx.fillRect(0, 0, W, H); }
-  [...targets].sort((a, b) => b.z - a.z).forEach(drawTarget);
+  for (const t of targets) drawTarget(t);
   for (const p of parts) {
-    const pr = proj(p.x, p.y, p.z); if (!pr.ok) continue;
-    ctx.beginPath(); ctx.arc(pr.x, pr.y, p.r * pr.s * 42, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fillStyle = p.col + p.life + ')'; ctx.fill();
   }
   drawReturnPath();
   drawTrail();
-  if (WP.state !== 'rest' || WP.bt > 0) drawWeapon3D(WP.x, WP.y, WP.z, WP.rx, WP.ry, WP.rz, WP.state === 'rest' ? .9 : 1);
+  // Top: state'e göre alpha
+  const alpha = ball.state === 'idle' ? .7 : 1;
+  drawBall(ball.x, ball.y, ball.r, alpha);
   drawHand(handLms);
 }
 
-// ─── LOOP ────────────────────────────────────────────────────
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
 
-// ─── MEDIAPIPE ───────────────────────────────────────────────
+// ─── MEDIAPIPE ──────────────────────────────────────────────
 const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
 hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: .6, minTrackingConfidence: .5 });
 hands.onResults(r => {
@@ -544,7 +506,7 @@ async function startCamera() {
       new Camera(vid, { onFrame: async () => { await hands.send({ image: vid }); }, width: 1280, height: 720 }).start();
     };
   } catch (e) {
-    document.getElementById('loadmsg').textContent = 'Kamera izni gerekli: ' + e.message;
+    document.getElementById('lp').textContent = 'Kamera izni gerekli: ' + e.message;
     document.querySelector('.sp').style.display = 'none';
   }
 }
